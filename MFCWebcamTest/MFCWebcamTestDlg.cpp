@@ -285,7 +285,7 @@ void CMFCWebcamTestDlg::DrawImageIoControl(const CImage& c_img, const CRect& pic
 	m_memDC.FillSolidRect(&pic_rect, RGB(255, 255, 255));
 
 	// CImage를 메모리 DC에 그리기
-	c_img.Draw(m_memDC.m_hDC, drawing_rect);
+	c_img.Draw(m_memDC.m_hDC, drawing_rect); // 네모크기 맞춤
 
 	// 메모리 DC의 내용을 화면 DC로 복사
 	pDC->BitBlt(0, 0, pic_rect.Width(), pic_rect.Height(), &m_memDC, 0, 0, SRCCOPY);

@@ -10,9 +10,10 @@
 #define IDC_POLY_LIST                   1003
 #define IDC_DEL_BTN                     1004
 #define IDC_SHOW_PIC                    1005
-#define IDC_CLEAR_BTN2                  1006
 #define IDC_CLEAR_BTN                   1006
 #define IDC_ROTATE_BTN                  1007
+#define IDC_CLEAR_BTN2                  1008
+#define IDC_COPY_BTN                    1008
 #define ID_32771                        32771
 #define ID_Menu                         32772
 #define ID_32773                        32773

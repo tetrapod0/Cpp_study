@@ -34,6 +34,8 @@ BEGIN_MESSAGE_MAP(CMFCMyImageDlg, CDialogEx)
 	ON_BN_CLICKED(IDC_BUTTON1, &CMFCMyImageDlg::OnBnClickedButton1)
 	ON_BN_CLICKED(IDC_BUTTON2, &CMFCMyImageDlg::OnBnClickedButton2)
 	ON_BN_CLICKED(IDC_BUTTON3, &CMFCMyImageDlg::OnBnClickedButton3)
+	ON_BN_CLICKED(IDC_BUTTON4, &CMFCMyImageDlg::OnBnClickedButton4)
+	ON_BN_CLICKED(IDC_BUTTON5, &CMFCMyImageDlg::OnBnClickedButton5)
 END_MESSAGE_MAP()
 
 
@@ -61,9 +63,9 @@ BOOL CMFCMyImageDlg::OnInitDialog()
 
 void CMFCMyImageDlg::OnPaint()
 {
+	CPaintDC dc(this); // 그리기를 위한 디바이스 컨텍스트입니다.
 	if (IsIconic())
 	{
-		CPaintDC dc(this); // 그리기를 위한 디바이스 컨텍스트입니다.
 
 		SendMessage(WM_ICONERASEBKGND, reinterpret_cast<WPARAM>(dc.GetSafeHdc()), 0);
 
@@ -80,6 +82,13 @@ void CMFCMyImageDlg::OnPaint()
 	}
 	else
 	{
+		if (m_pCImage != nullptr) {
+
+
+			// 크기 조절된 이미지
+			m_pCImage;
+		}
+
 		CDialogEx::OnPaint();
 	}
 }
@@ -110,10 +119,15 @@ void CMFCMyImageDlg::OnBnClickedButton2()
 	CDC* dc;
 	dc = pic_con->GetDC();
 	CImage image;
-	image.Load(L"./apple.jpg");
+	HRESULT hResult = image.Load(L"./apple.jpg");
+	if (FAILED(hResult)) {
+		// 실패 처리
+	}
 	// 이미지를 pic_con 크기로 조정
-	image.StretchBlt(dc->m_hDC, 0, 0, rect.Width(), rect.Height(), SRCCOPY);
+	//image.StretchBlt(dc->m_hDC, 0, 0, rect.Width(), rect.Height(), SRCCOPY);
+	image.BitBlt(dc->m_hDC, 0, 0, rect.Width(), rect.Height(), 0, 0, SRCCOPY);
 	ReleaseDC(dc);
+
 }
 
 
@@ -229,7 +243,7 @@ void CMFCMyImageDlg::OnBnClickedButton3()
 	// 메모리 DC 클리어 (배경 색 설정)
 	memDC.FillSolidRect(&rect, RGB(255, 255, 255)); // 흰색 배경
 
-	// CImage를 메모리 DC에 그리기
+	// CImage를 메모리 DC에 그리기 // 비좁은공간에 그렸네
 	c_img.Draw(memDC.m_hDC, 0, 0);//, rect.Width(), rect.Height());
 
 	// 메모리 DC의 내용을 화면 DC로 복사
@@ -238,5 +252,23 @@ void CMFCMyImageDlg::OnBnClickedButton3()
 	// 리소스 정리
 	memDC.SelectObject(pOldBitmap);
 	pWnd->ReleaseDC(pDC);
+
+}
+
+
+void CMFCMyImageDlg::OnBnClickedButton4() // 이미지 불러오기
+{
+	// TODO: 여기에 컨트롤 알림 처리기 코드를 추가합니다.
+	m_pCImage = new CImage();
+	m_pCImage->Load(L"./apple.jpg");
+
+
+	CStatic* pic_con = (CStatic*)GetDlgItem(IDC_PIC1);
+}
+
+
+void CMFCMyImageDlg::OnBnClickedButton5() // 지우기
+{
+	// TODO: 여기에 컨트롤 알림 처리기 코드를 추가합니다.
 
 }

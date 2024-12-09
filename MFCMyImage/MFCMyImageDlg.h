@@ -35,9 +35,12 @@ protected:
 private:
 	CImage m_image;
 	cv::Mat m_matImage;
+	CImage* m_pCImage = nullptr;
 
 public:
 	afx_msg void OnBnClickedButton1();
 	afx_msg void OnBnClickedButton2();
 	afx_msg void OnBnClickedButton3();
+	afx_msg void OnBnClickedButton4();
+	afx_msg void OnBnClickedButton5();
 };

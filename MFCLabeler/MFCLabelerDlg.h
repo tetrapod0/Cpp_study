@@ -4,6 +4,7 @@
 
 #pragma once
 
+#include "mypoly.h"
 
 // CMFCLabelerDlg 대화 상자
 class CMFCLabelerDlg : public CDialogEx
@@ -39,6 +40,21 @@ public:
 	afx_msg void OnBnClickedDelBtn();
 	afx_msg void OnBnClickedRotateBtn();
 	afx_msg void OnBnClickedClearBtn();
+
+private:
+	std::vector<PolyControl> m_poly_list;
+	bool m_vertex_is_clicked = false;
+	bool m_poly_is_clicked = false;
+	bool m_bg_is_clicked = false;
+	int m_seleted_point = -1;
+	CPoint m_prev_cur;
+	CImage m_bg_img;
+	CPoint m_bg_pos;
+
+public:
+	void on_draw_PC();
+	afx_msg void OnLButtonDown(UINT nFlags, CPoint point);
+	afx_msg void OnLButtonUp(UINT nFlags, CPoint point);
+	afx_msg void OnMouseMove(UINT nFlags, CPoint point);
+	afx_msg void OnBnClickedCopyBtn();
 };
-
-
