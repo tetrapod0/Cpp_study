@@ -5,6 +5,7 @@
 #pragma once
 
 #include "mypoly.h"
+#include <opencv2/opencv.hpp>
 
 // CMFCLabelerDlg 대화 상자
 class CMFCLabelerDlg : public CDialogEx
@@ -31,15 +32,23 @@ protected:
 	afx_msg void OnPaint();
 	afx_msg HCURSOR OnQueryDragIcon();
 	DECLARE_MESSAGE_MAP()
+
 public:
 	afx_msg void OnGetMinMaxInfo(MINMAXINFO* lpMMI);
 	afx_msg void OnFileOpen();
 	afx_msg void OnFileSave();
 	afx_msg void OnDropFiles(HDROP hDropInfo);
 	afx_msg void OnBnClickedAddBtn();
+	afx_msg void OnBnClickedCopyBtn();
 	afx_msg void OnBnClickedDelBtn();
 	afx_msg void OnBnClickedRotateBtn();
-	afx_msg void OnBnClickedClearBtn();
+	afx_msg void OnLButtonDown(UINT nFlags, CPoint point);
+	afx_msg void OnLButtonUp(UINT nFlags, CPoint point);
+	afx_msg void OnMouseMove(UINT nFlags, CPoint point);
+	afx_msg BOOL OnMouseWheel(UINT nFlags, short zDelta, CPoint pt);
+	afx_msg void OnMButtonDown(UINT nFlags, CPoint point);
+	afx_msg void OnMButtonUp(UINT nFlags, CPoint point);
+	virtual BOOL PreTranslateMessage(MSG* pMsg);
 
 private:
 	std::vector<PolyControl> m_poly_list;
@@ -49,12 +58,14 @@ private:
 	int m_seleted_point = -1;
 	CPoint m_prev_cur;
 	CImage m_bg_img;
-	CPoint m_bg_pos;
-
+	cv::Point2f m_bg_pos; // 캔버스에서 이미지 시작 위치
+	cv::Mat m_origin_bg;
+	float m_bg_mag = 1;
+	
 public:
-	void on_draw_PC();
-	afx_msg void OnLButtonDown(UINT nFlags, CPoint point);
-	afx_msg void OnLButtonUp(UINT nFlags, CPoint point);
-	afx_msg void OnMouseMove(UINT nFlags, CPoint point);
-	afx_msg void OnBnClickedCopyBtn();
+	void draw_canvas_PC();
+	void draw_crop_PC();
+	bool mouse_pt_in_control(const CPoint& point, int nID);
+	void mat_to_cimg(const cv::Mat& mat, CImage& c_img);
+	void zoom_canvas(CPoint cur, float& current_mag, float add_mag);
 };
