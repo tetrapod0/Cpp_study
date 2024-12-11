@@ -10,6 +10,12 @@
 
 #include "mypoly.h"
 #include <opencv2/opencv.hpp>
+#include <filesystem>
+#include "json.hpp"
+#include <fstream>
+
+namespace fs = std::filesystem;
+using json = nlohmann::json;
 
 #ifdef _DEBUG
 #define new DEBUG_NEW
@@ -73,30 +79,15 @@ BOOL CMFCLabelerDlg::OnInitDialog()
 	edit_box->SetFont(&font);
 
 	// 임시 poly 추가
-	m_poly_list.push_back(PolyControl(100, 100, 200, 200, 100, 300, 0, 200));
-	m_poly_list.push_back(PolyControl(300, 300, 350, 300, 350, 350, 300, 350));
+	//m_poly_list.push_back(PolyControl(100, 100, 200, 200, 100, 300, 0, 200));
+	//m_poly_list.push_back(PolyControl(300, 300, 350, 300, 350, 350, 300, 350));
 
-	//
-	m_vertex_is_clicked = false;
-	m_poly_is_clicked = false;
-	m_bg_is_clicked = false;
-	m_seleted_point = -1;
-	m_prev_cur.SetPoint(0, 0);
-
+	
 	// 임시 이미지 추가
-	//m_bg_img.Load(L"./c_port.jpg");
-	m_origin_bg = cv::imread("./c_port.jpg");
-	if (m_origin_bg.empty()) AfxMessageBox(L"이미지 불러오기 실패");
-	mat_to_cimg(m_origin_bg, m_bg_img);
-	//m_bg_img.Load(L"./c_port.jpg");
-
-	m_bg_pos.x = 0;
-	m_bg_pos.y = 0;
-	m_bg_mag = 1.0;
-
-	//CString str;
-	//str.Format(L"%d, %d", m_origin_bg.rows, m_origin_bg.cols);
-	//AfxMessageBox(str);
+	//m_origin_bg = cv::imread("./data/c_port.jpg");
+	//if (m_origin_bg.empty()) AfxMessageBox(L"이미지 불러오기 실패");
+	
+	init_values();
 
 	return TRUE;  // 포커스를 컨트롤에 설정하지 않으면 TRUE를 반환합니다.
 }
@@ -128,6 +119,7 @@ void CMFCLabelerDlg::OnPaint()
 	{
 		draw_canvas_PC();
 		draw_crop_PC();
+		set_name_edit();
 
 		CDialogEx::OnPaint();
 	}
@@ -156,16 +148,48 @@ void CMFCLabelerDlg::OnGetMinMaxInfo(MINMAXINFO* lpMMI)
 void CMFCLabelerDlg::OnFileOpen()
 {
 	// TODO: 여기에 명령 처리기 코드를 추가합니다.
+	// 파일 경로 얻기 // 파일 대화상자 // TRUE면 열기모드
+	CString filter_str = L"Json Files (*.json)|*.json|Image Files (*.jpg;*.png)|*.jpg;*.png|All Files (*.*)|*.*||";
+	CFileDialog dlg(TRUE, NULL, NULL, OFN_HIDEREADONLY | OFN_OVERWRITEPROMPT, filter_str);
+	if (dlg.DoModal() != IDOK) return;
+	open_file_path(dlg.GetPathName());
+	draw_canvas_PC();
+	draw_crop_PC();
+	set_name_edit();
 }
 
 
 void CMFCLabelerDlg::OnFileSave()
 {
 	// TODO: 여기에 명령 처리기 코드를 추가합니다.
+	if (m_json_path.empty()) {
+		AfxMessageBox(L"이미지 또는 JSON 파일을 먼저 열어주세요.");
+		return;
+	}
 
-	//CString str;
-	//str.Format(L"%d, %d", point.x, point.y);
-	//AfxMessageBox(str);
+	// json 만들기
+	json data;
+	data["shapes"] = json::array();
+	for (auto& poly : m_poly_list) {
+		json shape;
+		// 이름 넣기
+		CString name = poly.get_name();
+		shape["label"] = WStringToString(name.GetString());
+		// 폴리곤 넣기
+		poly -= m_bg_pos;
+		poly /= m_bg_mag;
+		auto& pts = poly.get_points();
+		shape["points"] = json::array({ 
+			{pts[0].x, pts[0].y},{pts[1].x, pts[1].y},
+			{pts[2].x, pts[2].y},{pts[3].x, pts[3].y}
+		});
+		// 추가하기
+		data["shapes"].push_back(shape);
+	}
+	
+	// 저장하기
+	std::ofstream o(m_json_path, std::ios::out);
+	o << data;
 }
 
 
@@ -182,10 +206,14 @@ void CMFCLabelerDlg::OnDropFiles(HDROP hDropInfo)
 	// 파일의 경로를 처리
 	TCHAR filePath[MAX_PATH];
 	DragQueryFile(hDropInfo, 0, filePath, MAX_PATH);
-	CString path = filePath;
 
-	// 파일 경로 출력 (혹은 원하는 작업 수행)
-	AfxMessageBox(path);
+	// 파일 경로 열기
+	open_file_path(filePath);
+
+	// 
+	draw_canvas_PC();
+	draw_crop_PC();
+	set_name_edit();
 
 	CDialogEx::OnDropFiles(hDropInfo);
 }
@@ -195,9 +223,9 @@ void CMFCLabelerDlg::OnBnClickedAddBtn()
 {
 	// TODO: 여기에 컨트롤 알림 처리기 코드를 추가합니다.
 	m_poly_list.push_back(PolyControl(300, 300, 350, 300, 350, 350, 300, 350));
-	// 캔버스 업데이트
 	draw_canvas_PC();
-	// 크롭화면 업데이트
+	draw_crop_PC();
+	set_name_edit();
 }
 
 
@@ -207,10 +235,9 @@ void CMFCLabelerDlg::OnBnClickedCopyBtn()
 	if (!m_poly_list.size()) return;
 	PolyControl poly = m_poly_list.back(); // 복사 생성자
 	m_poly_list.push_back(poly.move_poly(10, 10));
-	// 캔버스 업데이트
 	draw_canvas_PC();
-	// 크롭화면 업데이트
 	draw_crop_PC();
+	set_name_edit();
 }
 
 
@@ -219,10 +246,9 @@ void CMFCLabelerDlg::OnBnClickedDelBtn()
 	// TODO: 여기에 컨트롤 알림 처리기 코드를 추가합니다.
 	if (!m_poly_list.size()) return;
 	m_poly_list.pop_back();
-	// 캔버스 업데이트
 	draw_canvas_PC();
-	// 크롭화면 업데이트
 	draw_crop_PC();
+	set_name_edit();
 }
 
 
@@ -230,6 +256,7 @@ void CMFCLabelerDlg::OnBnClickedRotateBtn()
 {
 	// TODO: 여기에 컨트롤 알림 처리기 코드를 추가합니다.
 	if (!m_poly_list.size()) return;
+	// 점 회전
 	m_poly_list.back().rotate_sequence();
 	// 캔버스 업데이트
 	draw_canvas_PC();
@@ -263,6 +290,14 @@ void CMFCLabelerDlg::OnLButtonDown(UINT nFlags, CPoint point)
 		}
 		if (m_vertex_is_clicked) return;
 
+		// 같은 폴리곤 또 선택시
+		if (m_poly_list[i].cur_in_poly(cur)) {
+			auto& l = m_poly_list;
+			// 맨 앞으로 보내기
+			l.insert(l.begin(), l.back());
+			l.pop_back();
+		}
+
 		// 폴리곤 선택 체크
 		for (; i >= 0; --i) {
 			if (m_poly_list[i].cur_in_poly(cur)) {
@@ -276,13 +311,6 @@ void CMFCLabelerDlg::OnLButtonDown(UINT nFlags, CPoint point)
 
 				// 화면 업데이트 // 선택된 폴리곤의 점 그리기
 				draw_canvas_PC();
-				//CRect update_rect = poly.get_surrounding_rect();
-				//GetDlgItem(IDC_SHOW_PIC)->ClientToScreen(&update_rect);
-				//ScreenToClient(&update_rect);
-				//InvalidateRect(&update_rect, FALSE); // 부분 갱신
-				//InvalidateRect(&update_rect, TRUE); // 부분 갱신
-				//draw_canvas_PC();
-
 				break;
 			}
 		}
@@ -314,6 +342,7 @@ void CMFCLabelerDlg::OnLButtonUp(UINT nFlags, CPoint point)
 	if (m_vertex_is_clicked || m_poly_is_clicked) {
 		// 크롭화면 업데이트
 		draw_crop_PC();
+		set_name_edit();
 	}
 	if (m_vertex_is_clicked) {
 		m_seleted_point = -1;
@@ -389,10 +418,10 @@ BOOL CMFCLabelerDlg::OnMouseWheel(UINT nFlags, short zDelta, CPoint pt)
 
 	if (mouse_pt_in_control(cur, IDC_SHOW_PIC)) {
 		if (zDelta > 0) {
-			zoom_canvas(cur, m_bg_mag, 0.1);
+			zoom_canvas(cur, m_bg_mag, 0.2);
 		}
 		else if (zDelta < 0) {
-			zoom_canvas(cur, m_bg_mag, -0.1);
+			zoom_canvas(cur, m_bg_mag, -0.2);
 		}
 		draw_canvas_PC();
 		return TRUE;
@@ -449,6 +478,15 @@ BOOL CMFCLabelerDlg::PreTranslateMessage(MSG* pMsg)
 			draw_canvas_PC();
 			return TRUE;
 		}
+		// Ctrl + S 감지
+		else if ((GetKeyState(VK_CONTROL) & 0x8000) && pMsg->wParam == 'S') {
+			OnFileSave();
+			return TRUE;
+		}
+		else if (pMsg->wParam == VK_DELETE) {
+			OnBnClickedDelBtn();
+			return TRUE;
+		}
 	}
 
 	return CDialogEx::PreTranslateMessage(pMsg);
@@ -478,9 +516,12 @@ void CMFCLabelerDlg::draw_canvas_PC() {
 	// 메모리 DC에 그리기
 	memDC.FillSolidRect(&pic_rect, RGB(255, 255, 255));
 	//m_bg_img.Draw(memDC, 0, 0); // 0,0 부터 이미지 원본크기로 그리기
-	m_bg_img.Draw(memDC, CPoint(m_bg_pos.x, m_bg_pos.y)); // CPoint 부터 이미지 원본 크기로 그리기
-	//m_bg_img.Draw(memDC, CRect(10, 10, 200, 200)); // 이미지를 강제로 리사이즈하여 rect영역에 그리기
-	//m_bg_img.Draw(memDC, 0, 0, 500, 500, 0, 0, 500, 500); // 이미지 특정 영역 크롭하여 강제로 리사이즈하여 dst 좌표에 그리기 (src와 dst 사이즈가 같으면 리사이즈 안함)
+	
+	if (!m_bg_img.IsNull()) {
+		m_bg_img.Draw(memDC, CPoint(m_bg_pos.x, m_bg_pos.y)); // CPoint 부터 이미지 원본 크기로 그리기
+		//m_bg_img.Draw(memDC, CRect(10, 10, 200, 200)); // 이미지를 강제로 리사이즈하여 rect영역에 그리기
+		//m_bg_img.Draw(memDC, 0, 0, 500, 500, 0, 0, 500, 500); // 이미지 특정 영역 크롭하여 강제로 리사이즈하여 dst 좌표에 그리기 (src와 dst 사이즈가 같으면 리사이즈 안함)
+	}
 
 	int i;
 	for (i = 0; i < m_poly_list.size(); ++i) {
@@ -518,25 +559,25 @@ void CMFCLabelerDlg::draw_crop_PC() {
 	// 메모리 DC 초기화
 	memDC.FillSolidRect(&pic_rect, RGB(255, 255, 255));
 
-	if (!m_poly_list.size()) return;
+	if (m_poly_list.size() && !m_origin_bg.empty()) {
+		// 이미지 크롭
+		PolyControl crop_poly(m_poly_list.back());
+		crop_poly -= m_bg_pos;
+		crop_poly /= m_bg_mag;
+		cv::Mat crop_img, convertor_M;
+		convertor_M = crop_poly.get_crop_img_and_M(m_origin_bg, crop_img);
 
-	// 이미지 크롭
-	PolyControl crop_poly(m_poly_list.back());
-	crop_poly -= m_bg_pos;
-	crop_poly /= m_bg_mag;
-	cv::Mat crop_img, convertor_M;
-	convertor_M = crop_poly.get_crop_img_and_M(m_origin_bg, crop_img);
+		// 이미지 리사이즈
+		float ratio1 = pic_rect.Width() / (float)crop_img.cols;
+		float ratio2 = pic_rect.Height() / (float)crop_img.rows;
+		float min_ratio = std::min<float>(ratio1, ratio2);
+		cv::resize(crop_img, crop_img, { 0,0 }, min_ratio, min_ratio);
 
-	// 이미지 리사이즈
-	float ratio1 = pic_rect.Width() / (float)crop_img.cols;
-	float ratio2 = pic_rect.Height() / (float)crop_img.rows;
-	float min_ratio = std::min<float>(ratio1, ratio2);
-	cv::resize(crop_img, crop_img, { 0,0 }, min_ratio, min_ratio);
-
-	// 이미지 그리기
-	CImage show_img;
-	mat_to_cimg(crop_img, show_img);
-	show_img.Draw(memDC, 0, 0); // 0,0 부터 이미지 원본크기로 그리기
+		// 이미지 그리기
+		CImage show_img;
+		mat_to_cimg(crop_img, show_img);
+		show_img.Draw(memDC, 0, 0); // 0,0 부터 이미지 원본크기로 그리기
+	}
 
 	// 화면 DC에 옮기기
 	pPicDC->BitBlt(0, 0, pic_rect.Width(), pic_rect.Height(), &memDC, 0, 0, SRCCOPY);
@@ -546,8 +587,11 @@ void CMFCLabelerDlg::draw_crop_PC() {
 }
 
 
-
-
+void CMFCLabelerDlg::set_name_edit() {
+	if (m_poly_list.empty()) return;
+	CString name = m_poly_list.back().get_name();
+	SetDlgItemText(IDC_NAME_EDIT, name);
+}
 
 
 bool CMFCLabelerDlg::mouse_pt_in_control(const CPoint& point, int nID) {
@@ -579,6 +623,7 @@ void CMFCLabelerDlg::mat_to_cimg(const cv::Mat& mat, CImage& c_img) {
 	}
 }
 
+
 void CMFCLabelerDlg::zoom_canvas(CPoint cur, float& current_mag, float add_mag) {
 	// 변동된 mag
 	float after_mag = current_mag + add_mag;
@@ -598,7 +643,8 @@ void CMFCLabelerDlg::zoom_canvas(CPoint cur, float& current_mag, float add_mag) 
 
 	// 이미지 크기 변경
 	cv::Mat temp_mat;
-	cv::resize(m_origin_bg, temp_mat, { 0,0 }, after_mag, after_mag);
+	if (!m_origin_bg.empty())
+		cv::resize(m_origin_bg, temp_mat, { 0,0 }, after_mag, after_mag);
 	mat_to_cimg(temp_mat, m_bg_img);
 
 	// 폴리곤들 좌표 변경
@@ -613,3 +659,122 @@ void CMFCLabelerDlg::zoom_canvas(CPoint cur, float& current_mag, float add_mag) 
 	current_mag = after_mag;
 }
 
+
+void CMFCLabelerDlg::init_values() {
+	m_poly_list.clear();
+
+	// 마우스 관련 초기화
+	m_vertex_is_clicked = false;
+	m_poly_is_clicked = false;
+	m_bg_is_clicked = false;
+	m_seleted_point = -1;
+	m_prev_cur.SetPoint(0, 0);
+
+	// 배경 이미지 설정
+	mat_to_cimg(m_origin_bg, m_bg_img);
+
+	// CImage 좌표와 배율 초기화
+	m_bg_pos.x = 0;
+	m_bg_pos.y = 0;
+	m_bg_mag = 1.0;
+
+	// 이름 edit control 초기화
+	SetDlgItemText(IDC_NAME_EDIT, L"");
+}
+
+
+void CMFCLabelerDlg::open_file_path(CString file_path) {
+	// 경로 검사
+	fs::path p(file_path.GetString());
+	if (!fs::exists(p)) {
+		AfxMessageBox(L"존재하지 않는 파일입니다.");
+		return;
+	}
+
+	// 이미지 파일 검사
+	fs::path json_path(p.replace_extension(".json"));
+	fs::path img_path;
+	if (fs::exists(p.replace_extension(".jpg"))) img_path = p;
+	else if (fs::exists(p.replace_extension(".png"))) img_path = p;
+	else {
+		AfxMessageBox(L"이미지 파일을 찾지 못했습니다.");
+		return;
+	}
+
+	// 이미지 불러오기
+	m_origin_bg = cv::imread(img_path.string());
+	if (m_origin_bg.empty()) {
+		AfxMessageBox(L"이미지 파일은 존재하지만 이미지 불러오기 실패");
+		return;
+	}
+	init_values();
+	m_json_path = json_path;
+
+	// json 없으면 패스
+	if (!fs::exists(json_path)) return;
+
+	// json 열기
+	std::ifstream i(json_path, std::ios::in);
+	json data;
+	i >> data;
+
+	try {
+		// 키 검사
+		if (!data.contains("shapes")) 
+			throw L"json 데이터에 \"shapes\"가 없습니다.";
+
+		for (auto& poly_data : data["shapes"]) {
+			// 키 검사
+			if (!poly_data.contains("label")) 
+				throw L"json 데이터에 \"label\"가 없습니다.";
+			if (!poly_data.contains("points"))
+				throw L"json 데이터에 \"points\"가 없습니다.";
+
+
+			// 이름 얻기
+			std::string str = poly_data["label"].get<std::string>();
+			std::wstring wstr = StringToWString(str);
+			CString name = wstr.c_str();
+
+			// 값 얻기
+			json flat_pts = poly_data["points"].flatten();
+			if (flat_pts.size() != 8)
+				throw L"json 데이터의 어떤 \"points\"의 값이 8개가 아닙니다.";
+			float args[8] = {0,0,0,0,0,0,0,0};
+			int i = 0;
+			for (auto& v : flat_pts.items())
+				args[i++] = v.value();
+
+			// poly를 list에 넣기
+			m_poly_list.push_back({ args[0], args[1], args[2], args[3], 
+				args[4], args[5], args[6], args[7] });
+			m_poly_list.back().set_name(name);
+		}
+	}
+	catch (const CString& e) {
+		AfxMessageBox(e);
+	}
+	catch (...) {
+		AfxMessageBox(L"json 데이터가 잘못되었습니다.");
+	}
+}
+
+
+// std::string -> std::wstring 변환
+std::wstring CMFCLabelerDlg::StringToWString(const std::string& str) {
+	// ANSI 문자열을 wchar_t로 변환
+	int size_needed = MultiByteToWideChar(CP_UTF8, 0, str.c_str(), -1, NULL, 0);
+	std::wstring wstr(size_needed, L'\0');
+	MultiByteToWideChar(CP_UTF8, 0, str.c_str(), -1, &wstr[0], size_needed);
+	return wstr;
+}
+
+
+// std::wstring -> std::string 변환
+std::string CMFCLabelerDlg::WStringToString(const std::wstring& wstr) {
+	// wchar_t 문자열을 UTF-8로 변환
+	int size_needed = WideCharToMultiByte(CP_UTF8, 0, wstr.c_str(), -1, NULL, 0, NULL, NULL);
+	std::string str(size_needed, '\0');
+	WideCharToMultiByte(CP_UTF8, 0, wstr.c_str(), -1, &str[0], size_needed, NULL, NULL);
+	return str;
+}

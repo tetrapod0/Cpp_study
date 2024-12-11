@@ -268,7 +268,7 @@ void CMFCNotepadDlg::OnFileOpen()
 	CString path = dlg.GetPathName();
 	m_currentFilePath = path;
 	CStdioFile file;
-	if (!file.Open(path, CFile::modeRead | CFile::typeBinary)) return;
+	if (!file.Open(path, CFile::modeRead | CFilCe::typeBinary)) return;
 
 	// 파일 크기 가져오기
 	ULONGLONG file_length = file.GetLength(); // 파일 크기

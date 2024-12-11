@@ -1,54 +1,64 @@
-﻿
-
-#include <iostream>
+﻿#include <iostream>
+//#include <string>
+#include <fstream>
+#include "json.hpp"
+#include "mytool.h"
 #include <opencv2/opencv.hpp>
-#include <vector>
 
+using json = nlohmann::json;
+using namespace my;
 
-class Point {
+void foo(float a1, float a2, float a3, float a4,
+    float a5, float a6, float a7, float a8) {
+
+}
+
+class Foo {
 public:
-	float x, y;
-	Point(float x_val, float y_val) : x(x_val), y(y_val) {};
-	Point(const Point& p) : x(p.x), y(p.y) {};
-
-	int foo() {
-		return bar();
-	}
-	int bar() {
-		return 77;
-	}
+    Foo(float a1, float a2, float a3, float a4,
+        float a5, float a6, float a7, float a8) {
+    }
 };
 
-#include <cassert>
+int main() {
+    // json 열기
+    std::ifstream i("yen_front.json", std::ios::in);
+    json data;
+    i >> data;
 
-int main()
-{
-	cv::Point2f pos = { 123.22, 33.3 };
-	Point pos2 = { 23.3, 4.4 };
-	//cv::Point2f pos3 = (cv::Point2f)pos2;
+    json shapes = data["shapes"];
+    //print(shapes.dump(2));
 
-	//cv::getPerspectiveTransform(,);
+    json points = shapes[0]["points"];
+    print(points.dump(2));
 
-	std::cout << pos.x << std::endl;
+    json flat = points.flatten();
+    print(flat.size());
 
-	pos *= 3;
-	pos + pos;
-	std::cout << pos.x << std::endl;
-
-
-	int d = 0;
-	//assert(d != 0 && "Denominator cannot be zero!");
-
-
-
-	std::cout << 16%5 << std::endl;
-
-	Point aa = { 1,2 };
-	std::cout << aa.foo() << std::endl;
+    //for (auto& v : flat.items()) {
+    //    float zz = v.value();
+    //    print(zz);
+    //}
 
 
-	std::vector<int> seq_list;
-	seq_list = { 1,2,3,4 };
-	seq_list.insert(seq_list.end(), { 3,4,5,6 });
-	std::cout << seq_list[5] << std::endl;
+
+    std::vector<cv::Point2f> pts = { {1,2}, {3,4} };
+    std::vector<cv::Point2f> pts2 = pts;
+    std::vector<cv::Point2f> pts3(pts);
+
+    pts[0].x = 99;
+    print(pts2[0].x, pts3[0].x);
+
+    pts.insert(pts.begin(), std::move(pts.back()));
+    pts.pop_back();
+    print(pts.size());
+
+    json aa;
+    aa = L"aaaa";
+    aa.get<std::wstring>();
+
+    std::ofstream o("test.json", std::ios::out);
+    o << aa;
+
+    return 0;
 }

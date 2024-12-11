@@ -6,6 +6,10 @@
 
 #include "mypoly.h"
 #include <opencv2/opencv.hpp>
+#include <filesystem>
+
+namespace fs = std::filesystem;
+
 
 // CMFCLabelerDlg 대화 상자
 class CMFCLabelerDlg : public CDialogEx
@@ -61,11 +65,17 @@ private:
 	cv::Point2f m_bg_pos; // 캔버스에서 이미지 시작 위치
 	cv::Mat m_origin_bg;
 	float m_bg_mag = 1;
+	fs::path m_json_path;
 	
 public:
 	void draw_canvas_PC();
 	void draw_crop_PC();
+	void set_name_edit();
 	bool mouse_pt_in_control(const CPoint& point, int nID);
 	void mat_to_cimg(const cv::Mat& mat, CImage& c_img);
 	void zoom_canvas(CPoint cur, float& current_mag, float add_mag);
+	void init_values();
+	void open_file_path(CString file_path);
+	std::wstring StringToWString(const std::string& str);
+	std::string WStringToString(const std::wstring& wstr);
 };

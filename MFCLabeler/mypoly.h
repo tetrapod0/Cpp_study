@@ -100,15 +100,13 @@ class PolyControl : public Poly {
 private:
 	int m_pt_size = 8;
 	COLORREF m_color;
-	std::vector<int> m_show_seq_list = { 0, 1, 2, 3 };
-	std::vector<int> m_pick_seq_list = { 0, 1, 2, 3 };
 	CString m_name = L"";
 
 	void set_color() {
 		// 난수 생성 엔진과 분포 정의
 		std::random_device rd; // 실제 랜덤 시드
 		std::mt19937 gen(rd()); // Mersenne Twister 엔진
-		std::uniform_int_distribution<int> dis(100, 200);
+		std::uniform_int_distribution<int> dis(50, 200);
 		m_color = RGB(dis(gen), dis(gen), dis(gen));
 	}
 
@@ -121,6 +119,9 @@ private:
 
 
 public:
+	PolyControl() : Poly({ 0,0 }, { 0,0 }, { 0,0 }, { 0,0 }) {
+		this->set_color();
+	}
 	PolyControl(cv::Point2f tl, cv::Point2f tr, cv::Point2f br, cv::Point2f bl)
 		: Poly(tl, tr, br, bl) {
 		this->set_color();
@@ -131,17 +132,11 @@ public:
 	}
 	PolyControl(const PolyControl& pc) : Poly(pc) {
 		m_color = pc.m_color;
-		m_show_seq_list = pc.m_show_seq_list; // vector의 복사생성자?
-		m_pick_seq_list = pc.m_pick_seq_list; // vector의 복사생성자?
 		m_name = pc.m_name;
-		//seq_list.insert(seq_list.end(), pc.seq_list.begin(), pc.seq_list.end());
 	}
 
 	std::vector<cv::Point2f> get_points() const override {
-		std::vector<cv::Point2f> new_points;
-		for (auto& i : m_pick_seq_list) {
-			new_points.push_back(points[i]); // 복사생성자
-		}
+		std::vector<cv::Point2f> new_points(points); // 복사
 		return new_points;
 	}
 
@@ -164,42 +159,12 @@ public:
 		return *this;
 	}
 	PolyControl& move_point(float x, float y, int idx) override {
-		static auto min3 = [](float a, float b, float c) {return std::min<float>(std::min<float>(a, b), c);};
-		static auto max3 = [](float a, float b, float c) {return std::max<float>(std::max<float>(a, b), c);};
-		if (idx < 0 || 4 <= idx) return *this;
-
-		cv::Point2f& pos = Poly::points[idx];
-		pos += cv::Point2f(x, y);
-		const cv::Point2f& pos1 = Poly::points[(idx + 1) % 4];
-		const cv::Point2f& pos2 = Poly::points[(idx + 2) % 4];
-		const cv::Point2f& pos3 = Poly::points[(idx + 3) % 4];
-		if (idx == 0) {
-			pos.x = min3(pos.x, pos1.x, pos2.x);
-			pos.y = min3(pos.y, pos2.y, pos3.y);
-		}
-		else if (idx == 1) {
-			pos.x = max3(pos.x, pos2.x, pos3.x);
-			pos.y = min3(pos.y, pos1.y, pos2.y);
-		}
-		else if (idx == 2) {
-			pos.x = max3(pos.x, pos1.x, pos2.x);
-			pos.y = max3(pos.y, pos2.y, pos3.y);
-		}
-		else {
-			pos.x = min3(pos.x, pos2.x, pos3.x);
-			pos.y = max3(pos.y, pos1.y, pos2.y);
-		}
+		Poly::move_point(x, y, idx);
 		return *this;
 	}
-
-
 	PolyControl& rotate_sequence() {
-		// 정방향
-		m_show_seq_list.insert(m_show_seq_list.begin(), m_show_seq_list.back());
-		m_show_seq_list.pop_back();
-		// 역방향
-		m_pick_seq_list.push_back(m_pick_seq_list.front());
-		m_pick_seq_list.erase(m_pick_seq_list.begin());
+		points.insert(points.begin(), points.back());
+		points.pop_back();
 		return *this;
 	}
 
@@ -246,7 +211,7 @@ public:
 			rect.SetRect(pos, pos);
 			rect.InflateRect(m_pt_size, m_pt_size);
 			pDC->Ellipse(rect);
-			str.Format(L"%d", m_show_seq_list[i]);
+			str.Format(L"%d", i);
 			pDC->DrawText(str, &rect, DT_CENTER | DT_VCENTER);
 		}
 
@@ -335,6 +300,9 @@ public:
 	PolyControl& set_name(const CString& name) {
 		m_name = name;
 		return *this;
+	}
+	CString get_name() {
+		return m_name;
 	}
 
 
