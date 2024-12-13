@@ -8,6 +8,10 @@
 #include "MFCObjectDetectDlg.h"
 #include "afxdialogex.h"
 
+#include "VisionDlg.h"
+#include "LabelerDlg.h"
+#include "SettingDlg.h"
+
 #ifdef _DEBUG
 #define new DEBUG_NEW
 #endif
@@ -31,6 +35,9 @@ void CMFCObjectDetectDlg::DoDataExchange(CDataExchange* pDX)
 BEGIN_MESSAGE_MAP(CMFCObjectDetectDlg, CDialogEx)
 	ON_WM_PAINT()
 	ON_WM_QUERYDRAGICON()
+	ON_WM_GETMINMAXINFO()
+	ON_NOTIFY(TCN_SELCHANGE, IDC_TAB_MAIN, &CMFCObjectDetectDlg::OnTcnSelchangeTabMain)
+	ON_WM_SIZE()
 END_MESSAGE_MAP()
 
 
@@ -46,6 +53,42 @@ BOOL CMFCObjectDetectDlg::OnInitDialog()
 	SetIcon(m_hIcon, FALSE);		// 작은 아이콘을 설정합니다.
 
 	// TODO: 여기에 추가 초기화 작업을 추가합니다.
+	
+	{// 탭 초기화
+		// 탭 추가
+		m_pTab = (CTabCtrl*)GetDlgItem(IDC_TAB_MAIN);
+		m_pTab->InsertItem(0, L"Vision");
+		m_pTab->InsertItem(1, L"Labeler");
+		m_pTab->InsertItem(2, L"Setting");
+
+		m_pTab->SetCurSel(0);
+
+		CRect tab_rect;
+		m_pTab->GetClientRect(&tab_rect);
+
+
+		CDialogEx* pDlg;
+		// 첫번째 탭
+		pDlg = new CVisionDlg();
+		pDlg->Create(IDD_VISION_DLG, m_pTab);
+		pDlg->MoveWindow(0, 20, tab_rect.Width(), tab_rect.Height() - 20);
+		pDlg->ShowWindow(SW_SHOW);
+		m_pDlgList.push_back(pDlg);
+		// 두번째 탭
+		pDlg = new CLabelerDlg();
+		pDlg->Create(IDD_LABELER_DLG, m_pTab);
+		pDlg->ShowWindow(SW_HIDE);
+		m_pDlgList.push_back(pDlg);
+		// 두번째 탭
+		pDlg = new CSettingDlg();
+		pDlg->Create(IDD_SETTING_DLG, m_pTab);
+		pDlg->ShowWindow(SW_HIDE);
+		m_pDlgList.push_back(pDlg);
+
+
+
+
+	}
 
 	return TRUE;  // 포커스를 컨트롤에 설정하지 않으면 TRUE를 반환합니다.
 }
@@ -86,3 +129,53 @@ HCURSOR CMFCObjectDetectDlg::OnQueryDragIcon()
 	return static_cast<HCURSOR>(m_hIcon);
 }
 
+
+
+
+void CMFCObjectDetectDlg::OnGetMinMaxInfo(MINMAXINFO* lpMMI)
+{
+	// TODO: 여기에 메시지 처리기 코드를 추가 및/또는 기본값을 호출합니다.
+	lpMMI->ptMinTrackSize = CPoint(1280, 720);
+	CDialogEx::OnGetMinMaxInfo(lpMMI);
+}
+
+
+void CMFCObjectDetectDlg::OnTcnSelchangeTabMain(NMHDR* pNMHDR, LRESULT* pResult)
+{
+	// TODO: 여기에 컨트롤 알림 처리기 코드를 추가합니다.
+	*pResult = 0;
+
+	int sel = m_pTab->GetCurSel();
+
+	// 전환전 상태검사?
+
+
+	// 탭 전환
+	if (sel < m_pDlgList.size()) {
+		CRect tab_rect;
+		m_pTab->GetClientRect(&tab_rect);
+		m_pDlgList[m_selected_tab]->ShowWindow(SW_HIDE);
+		m_pDlgList[sel]->ShowWindow(SW_SHOW);
+		m_pDlgList[sel]->MoveWindow(0, 20, tab_rect.Width(), tab_rect.Height() - 20);
+		m_selected_tab = sel;
+	}
+}
+
+
+void CMFCObjectDetectDlg::OnSize(UINT nType, int cx, int cy)
+{
+	CDialogEx::OnSize(nType, cx, cy);
+
+	// TODO: 여기에 메시지 처리기 코드를 추가합니다.
+
+	// 최소화 되어있는 경우
+	if (nType == SIZE_MINIMIZED) return;
+
+	//
+	if (m_pTab != nullptr && IsWindow(m_pTab->GetSafeHwnd()))
+	{
+		CRect tab_rect;
+		m_pTab->GetClientRect(&tab_rect);
+		m_pDlgList[m_selected_tab]->MoveWindow(0, 20, tab_rect.Width(), tab_rect.Height() - 20);
+	}
+}

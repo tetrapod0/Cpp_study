@@ -96,6 +96,12 @@ void CMFCAddNewWinDlg::OnBnClickedButton1()
 		CNewWin* dlg_ptr = new CNewWin(this);
 		dlg_ptr->Create(IDD_DIALOG1, this);
 		dlg_ptr->ShowWindow(SW_SHOW);
+
+		CRect rect;
+		GetWindowRect(&rect);
+		//GetClientRect(&rect);
+		//ClientToScreen(&rect);
+		dlg_ptr->MoveWindow(rect);
 	}
 	//m_vecCWndPtr.push_back(dlg_ptr);
 }

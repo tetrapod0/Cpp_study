@@ -54,7 +54,7 @@ int main() {
     print(pts.size());
 
     json aa;
-    aa = L"aaaa";
+    aa["aa"] = pts;
     aa.get<std::wstring>();
 
     std::ofstream o("test.json", std::ios::out);

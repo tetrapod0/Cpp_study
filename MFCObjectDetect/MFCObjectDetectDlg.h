@@ -4,6 +4,8 @@
 
 #pragma once
 
+#include <vector>
+
 
 // CMFCObjectDetectDlg 대화 상자
 class CMFCObjectDetectDlg : public CDialogEx
@@ -30,4 +32,14 @@ protected:
 	afx_msg void OnPaint();
 	afx_msg HCURSOR OnQueryDragIcon();
 	DECLARE_MESSAGE_MAP()
+public:
+	afx_msg void OnGetMinMaxInfo(MINMAXINFO* lpMMI);
+	afx_msg void OnTcnSelchangeTabMain(NMHDR* pNMHDR, LRESULT* pResult);
+
+private:
+	CTabCtrl* m_pTab;
+	std::vector<CDialogEx*> m_pDlgList;
+	int m_selected_tab = 0;
+public:
+	afx_msg void OnSize(UINT nType, int cx, int cy);
 };
