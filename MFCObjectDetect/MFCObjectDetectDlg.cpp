@@ -16,6 +16,7 @@
 #define new DEBUG_NEW
 #endif
 
+//#pragma comment(linker, "/entry:wWinMainCRTStartup /subsystem:console")
 
 // CMFCObjectDetectDlg 대화 상자
 
@@ -53,7 +54,8 @@ BOOL CMFCObjectDetectDlg::OnInitDialog()
 	SetIcon(m_hIcon, FALSE);		// 작은 아이콘을 설정합니다.
 
 	// TODO: 여기에 추가 초기화 작업을 추가합니다.
-	
+
+
 	{// 탭 초기화
 		// 탭 추가
 		m_pTab = (CTabCtrl*)GetDlgItem(IDC_TAB_MAIN);

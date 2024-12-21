@@ -9,6 +9,12 @@
 #include "MFC_testDlg.h"
 #include "afxdialogex.h"
 
+
+
+#include <opencv2/opencv.hpp>
+#include "myspace.h"
+
+
 #ifdef _DEBUG
 #define new DEBUG_NEW
 #endif
@@ -111,6 +117,9 @@ BOOL CMFCtestDlg::OnInitDialog()
 	// TODO: 여기에 추가 초기화 작업을 추가합니다.
 
 
+	cv::Mat mat = cv::imread("apple.jpg");  // 이미지 파일 경로
+	if (mat.empty()) AfxMessageBox(L"empty!");
+	else AfxMessageBox(L"load!");
 
 
 	return TRUE;  // 포커스를 컨트롤에 설정하지 않으면 TRUE를 반환합니다.
@@ -165,10 +174,6 @@ HCURSOR CMFCtestDlg::OnQueryDragIcon()
 	return static_cast<HCURSOR>(m_hIcon);
 }
 
-
-
-#include <opencv2/opencv.hpp>
-#include "myspace.h"
 
 
 

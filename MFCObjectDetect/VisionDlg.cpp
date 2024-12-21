@@ -5,12 +5,15 @@
 #include "MFCObjectDetect.h"
 #include "afxdialogex.h"
 #include "VisionDlg.h"
-#include "polyDetector.h"
 
 #include <thread>
 #include <chrono>
 #include <mutex>
+#include <opencv2/opencv.hpp>
 
+#include "polyDetector.h"
+
+#pragma comment(linker, "/entry:wWinMainCRTStartup /subsystem:console")
 
 // CVisionDlg 대화 상자
 
@@ -56,8 +59,38 @@ BOOL CVisionDlg::OnInitDialog()
 	//	pWnd->ModifyStyle(0, BS_OWNERDRAW);
 	//}
 
-    // 이중버퍼링 화면 출력 초기화
-    erase_memDC();
+    // opencv 관련 초기화
+    this->ft2 = cv::freetype::createFreeType2();
+    this->ft2->loadFontData("./NanumGothic.ttf", 0); // 0은 해당 파일 내에서 기본 글꼴
+
+    // poly_detector 초기화
+    try {
+        this->poly_detector = poly::PolyDetector("./dataset");
+    }
+    catch (const std::runtime_error& e) {
+        // runtime_error 예외 처리
+        std::cerr << "Caught a runtime_error: " << e.what() << std::endl;
+    }
+    catch (const std::exception& e) {
+        // 모든 표준 예외 처리 (fallback)
+        std::cerr << "Caught a standard exception: " << e.what() << std::endl;
+    }
+    catch (...) {
+        // 알 수 없는 예외 처리
+        std::cerr << "Caught an unknown exception!" << std::endl;
+    }
+
+    // poly_detector 테스트
+    std::cout << "poly_detector 테스트 시작" << std::endl;
+    cv::Mat img = cv::imread("./dataset/yen_front.jpg");
+    //cv::Mat img = cv::imread("./dataset/c_port.jpg");
+    if (img.empty()) std::cout << "img is empty!" << std::endl;
+    poly::ObjInfo obj;
+    cv::Mat M;
+    bool result = this->poly_detector.predict(img, obj, M);
+    std::cout << M.rows << " " << M.cols << std::endl;
+    std::cout << "result : " << result << std::endl;
+    std::cout << "poly_detector 테스트 완료" << std::endl;
 
 
 	return TRUE;  // return TRUE unless you set the focus to a control
@@ -147,7 +180,6 @@ void CVisionDlg::OnTimer(UINT_PTR nIDEvent)
 void CVisionDlg::OnBnClickedStartBtn()
 {
 	// TODO: 여기에 컨트롤 알림 처리기 코드를 추가합니다.
-	//AfxMessageBox(L"버튼눌림");
 
     // 버튼 업데이트
     this->running ^= true;
@@ -156,34 +188,34 @@ void CVisionDlg::OnBnClickedStartBtn()
 
     // 시작
     if (this->running) {
-        //SetTimer(1, 1000 / 30, nullptr); // 1번 타이머, 30 FPS
         // 카메라 오픈
         this->cap.open(0);
         this->cap.set(cv::CAP_PROP_FRAME_WIDTH, 1280);
         this->cap.set(cv::CAP_PROP_FRAME_HEIGHT, 720);
         // 영상 쓰레드 실행
         this->thr_list.push_back(std::thread(&CVisionDlg::img_producer, this));
+        this->thr_list.push_back(std::thread(&CVisionDlg::img_painter, this));
         
     }
     // 중지
     else {
-        //KillTimer(1);
-        // 쓰레드 중지
-        this->cv.notify_all();
+        // 쓰레드 중지 신호
+        this->raw_img_cv.notify_all();
+
+        // 쓰레드 종료 대기
         for (auto& t : this->thr_list) t.join();
         this->thr_list.clear();
 
-        
         // 카메라 닫기
         this->cap.release();
-        erase_memDC();
+        erase_DC(IDC_VISION_MAIN);
     }
 }
 
 
-void CVisionDlg::erase_memDC() {
+void CVisionDlg::erase_DC(int nID, COLORREF fill_color) {
     // 컨트롤 포인터 가져오기
-    CWnd* pWnd = GetDlgItem(IDC_VISION_MAIN);
+    CWnd* pWnd = GetDlgItem(nID);
     if (!pWnd) return;
 
     // 화면 DC 가져오기
@@ -191,8 +223,8 @@ void CVisionDlg::erase_memDC() {
     if (!pDC) return;
 
     // 컨트롤 클라이언트 영역 크기 가져오기
-    CRect pic_rect;
-    pWnd->GetClientRect(&pic_rect);
+    CRect rect;
+    pWnd->GetClientRect(&rect);
 
     // 메모리 DC 생성
     CDC memDC;
@@ -200,16 +232,16 @@ void CVisionDlg::erase_memDC() {
 
     // 메모리 DC에 사용할 비트맵 생성
     CBitmap memBitmap;
-    memBitmap.CreateCompatibleBitmap(pDC, pic_rect.Width(), pic_rect.Height());
+    memBitmap.CreateCompatibleBitmap(pDC, rect.Width(), rect.Height());
 
     // 새로 객체 연결하면서 이전에 연결된 객체 반환
     CBitmap* pOldBitmap = memDC.SelectObject(&memBitmap);
 
     // 메모리 DC 클리어 (배경 색 설정)
-    memDC.FillSolidRect(&pic_rect, RGB(240, 240, 240));
+    memDC.FillSolidRect(&rect, RGB(240, 240, 240));
 
     // 메모리 DC의 내용을 화면 DC로 복사
-    pDC->BitBlt(0, 0, pic_rect.Width(), pic_rect.Height(), &memDC, 0, 0, SRCCOPY);
+    pDC->BitBlt(0, 0, rect.Width(), rect.Height(), &memDC, 0, 0, SRCCOPY);
 
     // DC 해제
     pWnd->ReleaseDC(pDC);
@@ -226,16 +258,132 @@ void CVisionDlg::img_producer() {
 
 void CVisionDlg::grab_img() {
     if (this->cap.isOpened()) {
-        std::lock_guard<std::mutex> lock(this->raw_img_lock);
+        // raw_img 준비하기
+        std::lock_guard<std::mutex> lock(this->raw_img_mtx);
         this->cap >> this->raw_img;
+        this->raw_img_ready = true;
+        raw_img_cv.notify_one();
     }
 }
 
 
-void CVisionDlg::show_main_img() {
+void CVisionDlg::img_analyst() {
+    while (this->running) {
+        // raw_img -> ana_img 가져오기
+        std::unique_lock<std::mutex> lock(raw_img_mtx);
+        raw_img_cv.wait(lock, [&] {return raw_img_ready || !running;});
+        raw_img_ready = false;
+        if (!ana_img.data) ana_img.create(raw_img.size(), raw_img.type());
+        raw_img.copyTo(ana_img);
+        lock.unlock();
 
+        // ana_img 분석
+        poly::ObjInfo pred_obj;
+        cv::Mat convertor_M;
+        this->poly_detector.predict(ana_img, pred_obj, convertor_M);
+    }
 }
 
+
+void CVisionDlg::img_painter() {
+    //while (this->running) {
+    //    // raw_img 가져오기
+    //    std::unique_lock<std::mutex> lock(raw_img_mtx);
+    //    raw_img_cv.wait(lock, [&] {return raw_img_ready || !running;});
+    //    raw_img_ready = false;
+    //    if (!ana_img.data) ana_img.create(raw_img.size(), raw_img.type());
+    //    raw_img.copyTo(ana_img);
+    //    lock.unlock();
+
+    //    draw_matimg_PC(ana_img, IDC_VISION_MAIN);
+    //}
+}
+
+
+void CVisionDlg::draw_matimg_PC(const cv::Mat& mat_img, int nID) {
+    // 컨트롤 클라이언트 영역 크기 가져오기
+    CWnd* pWnd = GetDlgItem(nID);
+    if (!pWnd) return;
+    CRect rect;
+    pWnd->GetClientRect(&rect);
+
+    // 이미지 리사이즈
+    cv::Mat resized_mat_img;
+    float ratio1 = rect.Width() / (float)mat_img.cols; // 가로 배율
+    float ratio2 = rect.Height() / (float)mat_img.rows; // 세로 배율
+    float scale = std::min<float>(ratio1, ratio2);
+    cv::resize(mat_img, resized_mat_img, cv::Size(), scale, scale, cv::INTER_LINEAR);
+
+    // Mat -> CImage
+    CImage c_img;
+    mat_to_cimg(resized_mat_img, c_img);
+
+    // 이미지 중앙 맞춤 영역 계산
+    CRect drawing_rect = {
+        std::max<int>(0, rect.Width() / 2 - c_img.GetWidth() / 2),
+        std::max<int>(0, rect.Height() / 2 - c_img.GetHeight() / 2),
+        std::min<int>(rect.right, rect.Width() / 2 + c_img.GetWidth() / 2),
+        std::min<int>(rect.bottom, rect.Height() / 2 + c_img.GetHeight() / 2)
+    };
+
+    // 이미지 그리기
+    draw_c_img_PC(c_img, nID, &drawing_rect);
+}
+
+
+void CVisionDlg::draw_c_img_PC(const CImage& c_img, int nID, CRect* drawing_rect, COLORREF fill_color) {
+    // 컨트롤 포인터 가져오기
+    CWnd* pWnd = GetDlgItem(nID);
+    if (!pWnd) return;
+    // 컨트롤 클라이언트 영역 크기 가져오기
+    CRect rect;
+    pWnd->GetClientRect(&rect);
+    // 화면 Dc 가져오기
+    CDC* pDC = pWnd->GetDC();
+    if (!pDC) return;
+
+    // 메모리 DC 생성
+    CDC memDC;
+    memDC.CreateCompatibleDC(pDC);
+    // 메모리 DC에 사용할 비트맵 생성
+    CBitmap memBitmap;
+    memBitmap.CreateCompatibleBitmap(pDC, rect.Width(), rect.Height());
+    // 새로 객체 연결하면서 이전에 연결된 객체 반환
+    CBitmap* pOldBitmap = memDC.SelectObject(&memBitmap);
+
+    // 메모리 DC에 그리기
+    memDC.FillSolidRect(&rect, fill_color);
+    if (!c_img.IsNull()) {
+        if (drawing_rect == nullptr) c_img.Draw(memDC, 0, 0);
+        else c_img.Draw(memDC, *drawing_rect);
+    }
+
+    // 화면 DC에 옮기기
+    pDC->BitBlt(0, 0, rect.Width(), rect.Height(), &memDC, 0, 0, SRCCOPY);
+
+    // DC 해제
+    pWnd->ReleaseDC(pDC);
+}
+
+
+void CVisionDlg::mat_to_cimg(const cv::Mat& mat_img, CImage& c_img) {
+    int width = mat_img.cols;
+    int height = mat_img.rows;
+    int channels = mat_img.channels();
+    if (mat_img.empty()) return;
+
+    // CImage 객체에 할당할 공간 만듦
+    c_img.Create(width, height, 8 * channels);
+
+    // CImage의 비트맵 데이터를 얻어서 Mat 데이터를 복사
+    BYTE* pDest = (BYTE*)c_img.GetBits();
+    int step = mat_img.step;  // Mat의 한 행의 바이트 크기
+
+    for (int y = 0; y < mat_img.rows; ++y) {
+        // 한 행의 데이터를 복사
+        memcpy(pDest + y * c_img.GetPitch(), mat_img.ptr(y), mat_img.cols * channels); // 3은 RGB 채널 수
+    }
+}
 
 
 

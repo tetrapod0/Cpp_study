@@ -78,4 +78,6 @@ public:
 	void open_file_path(CString file_path);
 	std::wstring StringToWString(const std::string& str);
 	std::string WStringToString(const std::wstring& wstr);
+	std::string ANSIToUTF8(const std::string& ansiStr);
+	std::string UTF8ToANSI(const std::string& utf8Str);
 };

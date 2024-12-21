@@ -7,71 +7,40 @@
 #include <filesystem>
 #include <fstream>
 #include "json.hpp"
+#include <iostream>
 
 namespace fs = std::filesystem;
 using json = nlohmann::json;
 
 
 namespace poly {
-
-	float get_pseudo_width(const std::vector<cv::Point2f>& pts) {
-		cv::Point2f d = pts[0] - pts[1];
-		float len = sqrt(pow(d.x, 2) + pow(d.y, 2));
-		d = pts[2] - pts[3];
-		len += sqrt(pow(d.x, 2) + pow(d.y, 2));
-		return len / 2;
-	}
-	float get_pseudo_height(const std::vector<cv::Point2f>& pts) {
-		cv::Point2f d = pts[1] - pts[2];
-		float len = sqrt(pow(d.x, 2) + pow(d.y, 2));
-		d = pts[0] - pts[3];
-		len += sqrt(pow(d.x, 2) + pow(d.y, 2));
-		return len / 2;
-	}
-
-
-	void crop_img(const cv::Mat& src_img, cv::Mat& dst_img, const std::vector<cv::Point2f>& poly, float w=0, float h=0) {
-		// 사전에 구한 w,h가 없으면
-		w = (w)? w : get_pseudo_width(poly);
-		h = (h)? h : get_pseudo_height(poly);
-		// 이미지 크롭
-		std::vector<cv::Point2f> dst_poly = { {0,0},{w,0},{w,h},{0,h} };
-		cv::Mat convertor_M = cv::getPerspectiveTransform(poly, dst_poly);
-		cv::warpPerspective(src_img, dst_img, convertor_M, cv::Size(w, h));
-	}
+	float get_pseudo_width(const std::vector<cv::Point2f>& pts);
+	float get_pseudo_height(const std::vector<cv::Point2f>& pts);
+	cv::Mat crop_img_and_get_M(const cv::Mat& src_img, cv::Mat& dst_crop_img, const std::vector<cv::Point2f>& poly, cv::Size size = {0,0});
 
 
 	struct ObjInfo {
-		// first - label, second - polys // 주의! object는 직사각형임
+		// first - label, second - polys // 주의! object 라벨은 직사각형이어야함
 		std::unordered_map<std::string, std::vector<cv::Point2f>> src_poly_dic;
 		std::unordered_map<std::string, cv::Size> src_poly_size_dic;
 		std::vector<cv::KeyPoint> keypoints;
 		cv::Mat descriptors;
 
 		ObjInfo() {};
-		ObjInfo(fs::path img_path, fs::path json_path, cv::ORB* detector) {
-			// 이미지 불러오기
-			cv::Mat img_mat = cv::imread(img_path.string());
-			cv::cvtColor(img_mat, img_mat, cv::COLOR_BGR2GRAY);
-
-			// keypoints, descriptors 할당
-			detector->detectAndCompute(img_mat, 0, keypoints, descriptors);
-
+		ObjInfo(fs::path img_path, fs::path json_path, cv::Ptr<cv::ORB> detector) {
 			// json 불러오기
 			std::ifstream i(json_path.string(), std::ios::in);
 			json data;
 			i >> data;
 
 			// shapes 키 검사
-			if (!data.contains("shapes")) throw "json 데이터에 \"shapes\"가 없습니다.";
+			if (!data.contains("shapes")) throw std::runtime_error("json 데이터에 \"shapes\"가 없습니다.");
 
 			// src_poly_dic 할당
 			for (auto& poly_data : data["shapes"]) {
 				// 키 검사
-				if (!poly_data.contains("label"))
-					throw "json 데이터에 \"label\"가 없습니다.";
-				if (!poly_data.contains("points"))
-					throw "json 데이터에 \"points\"가 없습니다.";
+				if (!poly_data.contains("label")) throw std::runtime_error("json 데이터에 \"label\"가 없습니다.");
+				if (!poly_data.contains("points")) throw std::runtime_error("json 데이터에 \"points\"가 없습니다.");
 
 				// 라벨 이름 얻기 // map key
 				std::string label_name = poly_data["label"].get<std::string>();
@@ -85,12 +54,33 @@ namespace poly {
 				};
 			}
 
+			// object 라벨 존재 검사
+			auto it = this->src_poly_dic.find("object");
+			if (it == this->src_poly_dic.end()) throw std::runtime_error("object 라벨이 없습니다.");
+
 			// src_poly_size_dic 할당
 			for (const auto& [name, poly] : this->src_poly_dic) {
 				int w = poly::get_pseudo_width(poly);
 				int h = poly::get_pseudo_height(poly);
 				this->src_poly_size_dic[name] = { w, h };
 			}
+
+			// 이미지 불러오기
+			cv::Mat img_mat = cv::imread(img_path.string(), cv::IMREAD_GRAYSCALE);
+
+			// 이미지 크롭
+			cv::Mat crop_img_mat;
+			cv::Mat convertor_M = poly::crop_img_and_get_M(img_mat, crop_img_mat, 
+				this->src_poly_dic["object"], this->src_poly_size_dic["object"]);
+
+			// keypoints, descriptors 할당
+			//detector->detectAndCompute(img_mat, cv::noArray(), keypoints, descriptors);
+			detector->detectAndCompute(crop_img_mat, cv::noArray(), keypoints, descriptors);
+
+			// src_poly_dic 변환
+			for (auto& [_, poly] : this->src_poly_dic)
+				cv::perspectiveTransform(poly, poly, convertor_M);
+
 
 		}
 		ObjInfo(std::unordered_map<std::string, std::vector<cv::Point2f>> src_poly_dic,
@@ -110,41 +100,47 @@ namespace poly {
 			this->descriptors = o.descriptors;
 			this->src_poly_size_dic = o.src_poly_size_dic;
 		}
-		~ObjInfo() {
-			this->src_poly_dic.clear();
-			this->src_poly_size_dic.clear();
-			this->keypoints.clear();
-			this->descriptors.release();
-		}
+		~ObjInfo() = default;
+
+
+		//float get_pseudo_width(const std::vector<cv::Point2f>& pts) {
+		//	cv::Point2f d = pts[0] - pts[1];
+		//	float len = sqrt(pow(d.x, 2) + pow(d.y, 2));
+		//	d = pts[2] - pts[3];
+		//	len += sqrt(pow(d.x, 2) + pow(d.y, 2));
+		//	return len / 2;
+		//}
+		//float get_pseudo_height(const std::vector<cv::Point2f>& pts) {
+		//	cv::Point2f d = pts[1] - pts[2];
+		//	float len = sqrt(pow(d.x, 2) + pow(d.y, 2));
+		//	d = pts[0] - pts[3];
+		//	len += sqrt(pow(d.x, 2) + pow(d.y, 2));
+		//	return len / 2;
+		//}
 	};
 
 
 	class PolyDetector {
 	private:
-		cv::ORB* detector;
-		cv::BFMatcher* matcher;
+		cv::Ptr<cv::ORB> detector;
+		cv::Ptr<cv::BFMatcher> matcher;
 		std::unordered_map<std::string, ObjInfo> obj_info_dic;
 		fs::path data_dir_path;
 
 
 	public:
 		PolyDetector() {
-			this->detector = nullptr;
-			this->matcher = nullptr;
+			this->detector = nullptr; //cv::Ptr<cv::ORB>();
+			this->matcher = nullptr; //cv::Ptr<cv::BFMatcher>();
 		}
-		PolyDetector(fs::path data_dir_path, std::unordered_set<std::string>* pick_names_set = nullptr, int n_features = 2000) {
+		PolyDetector(fs::path data_dir_path, std::unordered_set<std::string>* pick_names_set = nullptr, int n_features = 5000) {
 			this->detector = cv::ORB::create(n_features);
 			this->matcher = cv::BFMatcher::create(cv::NormTypes::NORM_HAMMING2, true);
 			this->data_dir_path = data_dir_path;
 			// obj_info_dic 업데이트
 			update(pick_names_set);
 		}
-
-		~PolyDetector() {
-			this->detector->clear();
-			this->matcher->clear();
-			this->obj_info_dic.clear();
-		}
+		~PolyDetector() = default;
 
 
 		void update(std::unordered_set<std::string>* pick_names_set = nullptr) {
@@ -197,6 +193,8 @@ namespace poly {
 				json_path.replace_extension(".json");
 				// 넣기
 				obj_info_dic[name] = ObjInfo(img_path, json_path, this->detector);
+
+				std::cout << name << "사전이미지 특징점 갯수: " << obj_info_dic[name].keypoints.size() << std::endl;
 			}
 		}
 
@@ -204,9 +202,11 @@ namespace poly {
 		bool predict(const cv::Mat& bgr_img_mat, ObjInfo& output_obj, cv::OutputArray output_M=cv::noArray()) {
 			cv::Mat gray_img_mat;
 			cv::cvtColor(bgr_img_mat, gray_img_mat, cv::COLOR_BGR2GRAY);
+			std::cout << "입력 이미지 크기 : " << gray_img_mat.rows << " " << gray_img_mat.cols << std::endl;
 			std::vector<cv::KeyPoint> kp;
 			cv::Mat desc;
-			this->detector->detectAndCompute(gray_img_mat, 0, kp, desc);
+			this->detector->detectAndCompute(gray_img_mat, cv::noArray(), kp, desc);
+			std::cout << "입력 이미지 특징점 갯수 : " << kp.size() << std::endl;
 			// 특징점 부족
 			if (kp.size() < 50) return false;
 
@@ -218,6 +218,7 @@ namespace poly {
 				// 사전 데이터와 들어온 데이터 매칭
 				std::vector<cv::DMatch> matches;
 				this->matcher->match(obj.descriptors, desc, matches);
+
 				// 서로 비슷한 특징점 쌍 부족
 				if (matches.size() < 30) continue;
 
@@ -232,7 +233,9 @@ namespace poly {
 				cv::Mat mask;
 				cv::Mat convertor_M = cv::findHomography(src_pts, dst_pts, cv::RHO, 5.0, mask);
 				float acc = cv::countNonZero(mask) / (float)mask.rows;
-				
+
+				std::cout << "사전이름: " << name << "\t일치율: " << acc << std::endl;
+
 				// 최고 일치율 선택
 				if (best_acc < acc) {
 					best_obj = obj;
@@ -245,8 +248,11 @@ namespace poly {
 
 			// return
 			output_obj = best_obj;
-			output_M.create(best_M.size(), best_M.type());
-			best_M.copyTo(output_M);
+			if (output_M.needed()) {
+				output_M.create(best_M.size(), best_M.type());
+				best_M.copyTo(output_M);
+			}
+			return true;
 		}
 	};
 

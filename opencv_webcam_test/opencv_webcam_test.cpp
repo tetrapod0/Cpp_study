@@ -28,6 +28,8 @@ int main()
 
 	cv::Mat img;
 
+	if (!img.data) std::cout << img.rows << std::endl;
+
 
 	while (true) {
 
@@ -36,6 +38,7 @@ int main()
 
 		cap >> img;
 
+		std::cout << &img << std::endl;
 		//cap.retrieve(img);
 		//cap.grab();
 

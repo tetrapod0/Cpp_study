@@ -1,67 +1,73 @@
-﻿#include <iostream>
-#include <thread>
-#include <mutex>
-#include <condition_variable>
-#include <vector>
+﻿#include <windows.h>
+#include <iostream>
+#include <string>
 
-bool ready = false;
-bool fin = false;  // 모든 worker가 종료될 때까지 대기하는 플래그
-int workers_done = 0;  // 종료된 worker 수를 추적
-
-void notifier(std::mutex* m, std::condition_variable* cv) {
-    {
-        std::lock_guard<std::mutex> lock(*m);
-        ready = true;
-        cv->notify_one();  // 하나의 worker에게 알림
-    }
+// std::string -> std::wstring 변환
+std::wstring StringToWString(const std::string& str) {
+    // ANSI 문자열을 wchar_t로 변환
+    int size_needed = MultiByteToWideChar(CP_UTF8, 0, str.c_str(), -1, NULL, 0) - 1;
+    std::wstring wstr(size_needed, L'\0');
+    MultiByteToWideChar(CP_UTF8, 0, str.c_str(), -1, &wstr[0], size_needed);
+    return wstr;
 }
 
-void worker(std::mutex* m, std::condition_variable* cv) {
-    std::unique_lock<std::mutex> lock(*m);
-    cv->wait(lock, [] {return ready || fin;});  // ready가 true가 되거나 fin이 true가 되면 대기 해제
+// std::wstring -> std::string 변환
+std::string WStringToString(const std::wstring& wstr) {
+    // wchar_t 문자열을 UTF-8로 변환
+    int size_needed = WideCharToMultiByte(CP_UTF8, 0, wstr.c_str(), -1, NULL, 0, NULL, NULL) - 1;
+    std::string str(size_needed, '\0');
+    WideCharToMultiByte(CP_UTF8, 0, wstr.c_str(), -1, &str[0], size_needed, NULL, NULL);
+    return str;
+}
 
-    if (ready) {
-        std::cout << "Worker processing...\n";
-    }
-    ready = false;  // 다음 worker를 위해 ready를 false로 설정
+std::string ANSIToUTF8(const std::string& ansiStr) {
+    // ANSI 문자열을 UTF-8로 변환
+    int size_needed = MultiByteToWideChar(CP_ACP, 0, ansiStr.c_str(), -1, NULL, 0) - 1; // 
+    std::wstring wstr(size_needed, L'\0');
+    MultiByteToWideChar(CP_ACP, 0, ansiStr.c_str(), -1, &wstr[0], size_needed);
 
-    // 모든 worker가 끝났다면 fin을 true로 설정하고 종료
-    {
-        std::lock_guard<std::mutex> lock(*m);
-        workers_done++;
-        if (workers_done == 3) {  // 3개의 worker가 모두 종료되면
-            fin = true;
-            cv->notify_all();  // 모든 worker에게 종료 신호를 보냄
-        }
-    }
+    // wchar_t를 UTF-8로 변환
+    size_needed = WideCharToMultiByte(CP_UTF8, 0, &wstr[0], -1, NULL, 0, NULL, NULL) - 1;
+    std::string utf8Str(size_needed, '\0');
+    WideCharToMultiByte(CP_UTF8, 0, &wstr[0], -1, &utf8Str[0], size_needed, NULL, NULL);
+
+    return utf8Str;
+}
+
+std::string UTF8ToANSI(const std::string& utf8Str) {
+    // UTF-8 문자열을 wchar_t로 변환
+    int size_needed = MultiByteToWideChar(CP_UTF8, 0, utf8Str.c_str(), -1, NULL, 0) - 1;
+    std::wstring wstr(size_needed, L'\0');
+    MultiByteToWideChar(CP_UTF8, 0, utf8Str.c_str(), -1, &wstr[0], size_needed);
+
+    // wchar_t를 ANSI로 변환
+    size_needed = WideCharToMultiByte(CP_ACP, 0, &wstr[0], -1, NULL, 0, NULL, NULL) - 1;
+    std::string ansiStr(size_needed, '\0');
+    WideCharToMultiByte(CP_ACP, 0, &wstr[0], -1, &ansiStr[0], size_needed, NULL, NULL);
+
+    return ansiStr;
 }
 
 int main() {
-    std::mutex mtx;
-    std::condition_variable cv;
+    std::string str2 = u8"Hello";
+    std::cout << "UTF8 test length: " << str2.length() << std::endl;
 
-    std::vector<std::thread> worker_threads;
-    std::vector<std::thread> notifier_threads;
+    // std::string -> std::wstring
+    std::string str = "Hello, World! 안녕하세요";
+    //std::string str = "Hello";
+    std::cout << "ANSI length: " << str.length() << std::endl;
+    str = ANSIToUTF8(str);
+    std::cout << "UTF8 length: " << str.length() << std::endl;
+    std::wstring wstr = StringToWString(str);
+    std::cout << "UTF16 length: " << wstr.length() << std::endl;
+    //std::wcout << L"std::wstring: " << wstr << std::endl;
 
-    //// 3개의 worker 스레드 생성
-    //for (int i = 0; i < 3; ++i) {
-    //    worker_threads.push_back(std::thread(worker, &mtx, &cv));
-    //}
-
-    //// 3개의 notifier 스레드 생성
-    //for (int i = 0; i < 3; ++i) {
-    //    notifier_threads.push_back(std::thread(notifier, &mtx, &cv));
-    //}
-
-    //// 모든 스레드가 종료될 때까지 대기
-    //for (auto& t : worker_threads) {
-    //    t.join();
-    //}
-    //for (auto& t : notifier_threads) {
-    //    t.join();
-    //}
-
-    std::cout << "All workers finished.\n";
+    // std::wstring -> std::string
+    std::string convertedStr = WStringToString(wstr);
+    std::cout << "UTF8 length: " << convertedStr.length() << std::endl;
+    convertedStr = UTF8ToANSI(convertedStr);
+    std::cout << "ANSI length: " << convertedStr.length() << std::endl;
+    std::cout << "std::string: " << convertedStr << std::endl;
 
     return 0;
 }

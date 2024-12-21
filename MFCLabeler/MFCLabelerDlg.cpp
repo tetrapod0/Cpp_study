@@ -189,7 +189,7 @@ void CMFCLabelerDlg::OnFileSave()
 	
 	// 저장하기
 	std::ofstream o(m_json_path, std::ios::out);
-	o << data;
+	o << data.dump(2);
 }
 
 
@@ -291,7 +291,7 @@ void CMFCLabelerDlg::OnLButtonDown(UINT nFlags, CPoint point)
 		if (m_vertex_is_clicked) return;
 
 		// 같은 폴리곤 또 선택시
-		if (m_poly_list[i].cur_in_poly(cur)) {
+		if (i >= 0 && m_poly_list[i].cur_in_poly(cur)) {
 			auto& l = m_poly_list;
 			// 맨 앞으로 보내기
 			l.insert(l.begin(), l.back());
@@ -763,7 +763,7 @@ void CMFCLabelerDlg::open_file_path(CString file_path) {
 // std::string -> std::wstring 변환
 std::wstring CMFCLabelerDlg::StringToWString(const std::string& str) {
 	// ANSI 문자열을 wchar_t로 변환
-	int size_needed = MultiByteToWideChar(CP_UTF8, 0, str.c_str(), -1, NULL, 0);
+	int size_needed = MultiByteToWideChar(CP_UTF8, 0, str.c_str(), -1, NULL, 0) - 1;
 	std::wstring wstr(size_needed, L'\0');
 	MultiByteToWideChar(CP_UTF8, 0, str.c_str(), -1, &wstr[0], size_needed);
 	return wstr;
@@ -773,8 +773,9 @@ std::wstring CMFCLabelerDlg::StringToWString(const std::string& str) {
 // std::wstring -> std::string 변환
 std::string CMFCLabelerDlg::WStringToString(const std::wstring& wstr) {
 	// wchar_t 문자열을 UTF-8로 변환
-	int size_needed = WideCharToMultiByte(CP_UTF8, 0, wstr.c_str(), -1, NULL, 0, NULL, NULL);
+	int size_needed = WideCharToMultiByte(CP_UTF8, 0, wstr.c_str(), -1, NULL, 0, NULL, NULL) - 1;
 	std::string str(size_needed, '\0');
 	WideCharToMultiByte(CP_UTF8, 0, wstr.c_str(), -1, &str[0], size_needed, NULL, NULL);
 	return str;
 }
+
