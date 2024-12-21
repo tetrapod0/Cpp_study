@@ -4,61 +4,65 @@
 #include "json.hpp"
 #include "mytool.h"
 #include <opencv2/opencv.hpp>
+#include <vector>
+#include <filesystem>
+#include <unordered_set>
+#include <map>
+#include <thread>
+#include <mutex>
+#include <condition_variable>
+#include <chrono>
 
+namespace fs = std::filesystem;
 using json = nlohmann::json;
-using namespace my;
 
-void foo(float a1, float a2, float a3, float a4,
-    float a5, float a6, float a7, float a8) {
+bool ready = false;
+bool fin = false;
+
+std::mutex m1, m2;
+std::condition_variable cv1, cv2;
+
+void notifier() {
+    std::unique_lock<std::mutex> lock(m1);
+    cv1.wait(lock, [] {return !ready || fin;});
+    ready = true;
+    my::print("wakeup 1 worker");
+    cv2.notify_one();
 
 }
 
-class Foo {
-public:
-    Foo(float a1, float a2, float a3, float a4,
-        float a5, float a6, float a7, float a8) {
-    }
-};
+
+void worker() {
+    std::unique_lock<std::mutex> lock(m2);
+    cv2.wait(lock, [] {return ready || fin;});
+    ready = false;
+    my::print("wakeup 1 notifier");
+    cv1.notify_one();
+}
+
 
 int main() {
-    // json 열기
-    std::ifstream i("yen_front.json", std::ios::in);
-    json data;
-    i >> data;
 
-    json shapes = data["shapes"];
-    //print(shapes.dump(2));
+    std::vector<std::thread> worker_threads;
+    std::vector<std::thread> notifier_threads;
 
-    json points = shapes[0]["points"];
-    print(points.dump(2));
-
-    json flat = points.flatten();
-    print(flat.size());
-
-    //for (auto& v : flat.items()) {
-    //    float zz = v.value();
-    //    print(zz);
-    //}
+    for (int i = 0; i < 3; ++i)
+        worker_threads.push_back(std::thread(worker));
+    std::this_thread::sleep_for(std::chrono::milliseconds(50));
+    for (int i = 0; i < 3; ++i)
+        notifier_threads.push_back(std::thread(notifier));
+    
 
 
+    std::this_thread::sleep_for(std::chrono::milliseconds(5000));  // 대기 시간 추가
+    my::print("끝났어");
+    fin = true;
+    cv1.notify_all();
+    cv2.notify_all();
 
-    std::vector<cv::Point2f> pts = { {1,2}, {3,4} };
-    std::vector<cv::Point2f> pts2 = pts;
-    std::vector<cv::Point2f> pts3(pts);
 
-    pts[0].x = 99;
-    print(pts2[0].x, pts3[0].x);
-
-    pts.insert(pts.begin(), std::move(pts.back()));
-    pts.pop_back();
-    print(pts.size());
-
-    json aa;
-    aa["aa"] = pts;
-    aa.get<std::wstring>();
-
-    std::ofstream o("test.json", std::ios::out);
-    o << aa;
+    for (auto& t : worker_threads) t.join();
+    for (auto& t : notifier_threads) t.join();
 
     return 0;
 }

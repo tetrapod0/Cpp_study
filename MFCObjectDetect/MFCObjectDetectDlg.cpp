@@ -79,13 +79,11 @@ BOOL CMFCObjectDetectDlg::OnInitDialog()
 		pDlg->Create(IDD_LABELER_DLG, m_pTab);
 		pDlg->ShowWindow(SW_HIDE);
 		m_pDlgList.push_back(pDlg);
-		// 두번째 탭
+		// 세번째 탭
 		pDlg = new CSettingDlg();
 		pDlg->Create(IDD_SETTING_DLG, m_pTab);
 		pDlg->ShowWindow(SW_HIDE);
 		m_pDlgList.push_back(pDlg);
-
-
 
 
 	}
@@ -128,8 +126,6 @@ HCURSOR CMFCObjectDetectDlg::OnQueryDragIcon()
 {
 	return static_cast<HCURSOR>(m_hIcon);
 }
-
-
 
 
 void CMFCObjectDetectDlg::OnGetMinMaxInfo(MINMAXINFO* lpMMI)
