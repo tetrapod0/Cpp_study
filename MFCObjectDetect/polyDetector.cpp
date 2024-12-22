@@ -18,7 +18,7 @@ namespace poly {
 	}
 
 
-	cv::Mat crop_img_and_get_M(const cv::Mat& src_img, cv::Mat& dst_crop_img, const std::vector<cv::Point2f>& poly, cv::Size size) {
+	cv::Mat crop_img_and_get_M(const cv::Mat& src_img, cv::Mat& dst_crop_img, const std::vector<cv::Point2f>& poly, const cv::Size& size) {
 		// 사전에 구한 w,h가 없으면
 		float w = (size.width) ? size.width : poly::get_pseudo_width(poly);
 		float h = (size.height) ? size.height : poly::get_pseudo_width(poly);

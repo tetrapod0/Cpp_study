@@ -118,8 +118,15 @@ BOOL CMFCtestDlg::OnInitDialog()
 
 
 	cv::Mat mat = cv::imread("apple.jpg");  // 이미지 파일 경로
-	if (mat.empty()) AfxMessageBox(L"empty!");
-	else AfxMessageBox(L"load!");
+	//if (mat.empty()) AfxMessageBox(L"empty!");
+	//else AfxMessageBox(L"load!");
+
+	std::string s = "test 한글";
+	s = ANSIToUTF8(s);
+	CString ss = StringToWString(s).c_str();
+	AfxMessageBox(ss);
+
+
 
 
 	return TRUE;  // 포커스를 컨트롤에 설정하지 않으면 TRUE를 반환합니다.
@@ -173,10 +180,6 @@ HCURSOR CMFCtestDlg::OnQueryDragIcon()
 {
 	return static_cast<HCURSOR>(m_hIcon);
 }
-
-
-
-
 
 
 
@@ -281,4 +284,52 @@ void CMFCtestDlg::OnTimer(UINT_PTR nIDEvent)
 	CDialogEx::OnTimer(nIDEvent);
 
 
+}
+
+
+
+// std::string -> std::wstring 변환
+std::wstring CMFCtestDlg::StringToWString(const std::string& str) {
+	// ANSI 문자열을 wchar_t로 변환
+	int size_needed = MultiByteToWideChar(CP_UTF8, 0, str.c_str(), -1, NULL, 0) - 1;
+	std::wstring wstr(size_needed, L'\0');
+	MultiByteToWideChar(CP_UTF8, 0, str.c_str(), -1, &wstr[0], size_needed);
+	return wstr;
+}
+
+// std::wstring -> std::string 변환
+std::string CMFCtestDlg::WStringToString(const std::wstring& wstr) {
+	// wchar_t 문자열을 UTF-8로 변환
+	int size_needed = WideCharToMultiByte(CP_UTF8, 0, wstr.c_str(), -1, NULL, 0, NULL, NULL) - 1;
+	std::string str(size_needed, '\0');
+	WideCharToMultiByte(CP_UTF8, 0, wstr.c_str(), -1, &str[0], size_needed, NULL, NULL);
+	return str;
+}
+
+std::string CMFCtestDlg::ANSIToUTF8(const std::string& ansiStr) {
+	// ANSI 문자열을 UTF-8로 변환
+	int size_needed = MultiByteToWideChar(CP_ACP, 0, ansiStr.c_str(), -1, NULL, 0) - 1;
+	std::wstring wstr(size_needed, L'\0');
+	MultiByteToWideChar(CP_ACP, 0, ansiStr.c_str(), -1, &wstr[0], size_needed);
+
+	// wchar_t를 UTF-8로 변환
+	size_needed = WideCharToMultiByte(CP_UTF8, 0, &wstr[0], -1, NULL, 0, NULL, NULL) - 1;
+	std::string utf8Str(size_needed, '\0');
+	WideCharToMultiByte(CP_UTF8, 0, &wstr[0], -1, &utf8Str[0], size_needed, NULL, NULL);
+
+	return utf8Str;
+}
+
+std::string CMFCtestDlg::UTF8ToANSI(const std::string& utf8Str) {
+	// UTF-8 문자열을 wchar_t로 변환
+	int size_needed = MultiByteToWideChar(CP_UTF8, 0, utf8Str.c_str(), -1, NULL, 0) - 1;
+	std::wstring wstr(size_needed, L'\0');
+	MultiByteToWideChar(CP_UTF8, 0, utf8Str.c_str(), -1, &wstr[0], size_needed);
+
+	// wchar_t를 ANSI로 변환
+	size_needed = WideCharToMultiByte(CP_ACP, 0, &wstr[0], -1, NULL, 0, NULL, NULL) - 1;
+	std::string ansiStr(size_needed, '\0');
+	WideCharToMultiByte(CP_ACP, 0, &wstr[0], -1, &ansiStr[0], size_needed, NULL, NULL);
+
+	return ansiStr;
 }

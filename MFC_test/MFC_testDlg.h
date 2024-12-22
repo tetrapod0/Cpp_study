@@ -4,6 +4,7 @@
 
 #pragma once
 
+#include <string>
 
 // CMFCtestDlg 대화 상자
 class CMFCtestDlg : public CDialogEx
@@ -41,4 +42,10 @@ public:
 	afx_msg void OnBnClickedCancel();
 	afx_msg void OnDestroy();
 	afx_msg void OnTimer(UINT_PTR nIDEvent);
+
+public:
+	std::wstring StringToWString(const std::string& str);
+	std::string WStringToString(const std::wstring& wstr);
+	std::string ANSIToUTF8(const std::string& ansiStr);
+	std::string UTF8ToANSI(const std::string& utf8Str);
 };
