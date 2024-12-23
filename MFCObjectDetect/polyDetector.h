@@ -210,7 +210,19 @@ namespace poly {
 				fs::path json_path = data_dir_path / name;
 				json_path.replace_extension(".json");
 				// 넣기
-				obj_info_map[name] = ObjInfo(name, img_path, json_path, this->detector);
+				try {
+					obj_info_map[name] = ObjInfo(name, img_path, json_path, this->detector);
+				}
+				catch (const std::runtime_error& e) {
+					std::cout << "해당 Obj 등록제외됨: " << name << "\tError 메시지: " << e.what() << std::endl;
+				}
+				catch (const std::exception& e) {
+					std::cout << "해당 Obj 등록제외됨: " << name << "\tError 메시지: " << e.what() << std::endl;
+				}
+				catch (...) {
+					std::cout << "해당 Obj 등록제외됨: " << name << "\tError 메시지: 알 수 없는 에러" << std::endl;
+				}
+				
 
 				std::cout << name << "사전이미지 특징점 갯수: " << obj_info_map[name].keypoints.size() << std::endl;
 			}

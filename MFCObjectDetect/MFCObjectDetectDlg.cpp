@@ -68,7 +68,6 @@ BOOL CMFCObjectDetectDlg::OnInitDialog()
 		CRect tab_rect;
 		m_pTab->GetClientRect(&tab_rect);
 
-
 		CDialogEx* pDlg;
 		// 첫번째 탭
 		pDlg = new CVisionDlg();
@@ -176,4 +175,17 @@ void CMFCObjectDetectDlg::OnSize(UINT nType, int cx, int cy)
 		m_pTab->GetClientRect(&tab_rect);
 		m_pDlgList[m_selected_tab]->MoveWindow(0, 20, tab_rect.Width(), tab_rect.Height() - 20);
 	}
+}
+
+
+BOOL CMFCObjectDetectDlg::PreTranslateMessage(MSG* pMsg)
+{
+	// TODO: 여기에 특수화된 코드를 추가 및/또는 기본 클래스를 호출합니다.
+	if (pMsg->message == WM_KEYDOWN) {
+		// 단순 ESC 키 입력시 창 닫힘 제거
+		if (pMsg->wParam == VK_ESCAPE) return TRUE;
+		// 단순 Enter 키 입력시 창 닫힘 제거
+		else if (pMsg->wParam == VK_RETURN) return TRUE;
+	}
+	return CDialogEx::PreTranslateMessage(pMsg);
 }

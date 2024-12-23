@@ -170,7 +170,8 @@ void CMFCLabelerDlg::OnFileSave()
 	// json 만들기
 	json data;
 	data["shapes"] = json::array();
-	for (auto& poly : m_poly_list) {
+	for (const auto& _poly : m_poly_list) {
+		auto poly = _poly;
 		json shape;
 		// 이름 넣기
 		CString name = poly.get_name();
@@ -190,6 +191,9 @@ void CMFCLabelerDlg::OnFileSave()
 	// 저장하기
 	std::ofstream o(m_json_path, std::ios::out);
 	o << data.dump(2);
+
+	//
+	AfxMessageBox(L"저장되었습니다.");
 }
 
 

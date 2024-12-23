@@ -101,6 +101,20 @@ BOOL CVisionDlg::OnInitDialog()
 }
 
 
+BOOL CVisionDlg::PreTranslateMessage(MSG* pMsg)
+{
+    // TODO: 여기에 특수화된 코드를 추가 및/또는 기본 클래스를 호출합니다.
+    if (pMsg->message == WM_KEYDOWN) {
+        // 단순 ESC 키 입력시 창 닫힘 제거
+        if (pMsg->wParam == VK_ESCAPE) return TRUE;
+        // 단순 Enter 키 입력시 창 닫힘 제거
+        else if (pMsg->wParam == VK_RETURN) return TRUE;
+    }
+
+    return CDialogEx::PreTranslateMessage(pMsg);
+}
+
+
 void CVisionDlg::OnSize(UINT nType, int cx, int cy)
 {
     CDialogEx::OnSize(nType, cx, cy);
@@ -265,7 +279,8 @@ void CVisionDlg::erase_DC(int nID, COLORREF fill_color) {
     memDC.FillSolidRect(&rect, RGB(240, 240, 240));
 
     // 메모리 DC의 내용을 화면 DC로 복사
-    pDC->BitBlt(0, 0, rect.Width(), rect.Height(), &memDC, 0, 0, SRCCOPY);
+    //pDC->BitBlt(0, 0, rect.Width(), rect.Height(), &memDC, 0, 0, SRCCOPY);
+    pDC->BitBlt(1, 1, rect.Width() - 2, rect.Height() - 2, &memDC, 1, 1, SRCCOPY);
 
     // DC 해제
     pWnd->ReleaseDC(pDC);
@@ -337,7 +352,8 @@ void CVisionDlg::draw_c_img_PC(const CImage& c_img, int nID, CRect* drawing_rect
     }
 
     // 화면 DC에 옮기기
-    pDC->BitBlt(0, 0, rect.Width(), rect.Height(), &memDC, 0, 0, SRCCOPY);
+    //pDC->BitBlt(0, 0, rect.Width(), rect.Height(), &memDC, 0, 0, SRCCOPY);
+    pDC->BitBlt(1, 1, rect.Width() - 2, rect.Height() - 2, &memDC, 1, 1, SRCCOPY);
 
     // DC 해제
     pWnd->ReleaseDC(pDC);
@@ -373,7 +389,7 @@ void CVisionDlg::grab_img_proc() {
         bool result = grab_img(raw_img);
         // raw_img 전달
         std::lock_guard<std::mutex> lock(this->raw_q_mtx);
-        this->raw_q.push(raw_img);
+        this->raw_q.push(std::move(raw_img)); // 이동으로 전달
         this->raw_q_cv.notify_one();
     }
 }
@@ -402,7 +418,10 @@ void CVisionDlg::detect_poly_proc() {
         show_img = this->raw_q.front();
         this->raw_q.pop();
         lock.unlock();
-        if (this->raw_q.size() > 5) std::cout << "Warning: " << "this->raw_q.size(): " << this->raw_q.size() << std::endl;
+        if (this->raw_q.size() > 5) {
+            std::cout << "Warning: " << "this->raw_q.size(): " << this->raw_q.size() << std::endl;
+            while (!this->raw_q.empty()) this->raw_q.pop();
+        }
         
         // show_img 분석
         poly::ObjInfo pred_obj;
@@ -435,7 +454,6 @@ void CVisionDlg::crop_and_draw_proc() {
         color_map[name] = set_color();
     }
 
-
     while (this->running) {
         // result, show_img, pred_obj, convertor_M 전달
         std::unique_lock<std::mutex> lock(this->pred_q_mtx);
@@ -444,7 +462,10 @@ void CVisionDlg::crop_and_draw_proc() {
         auto [result, show_img, pred_obj, convertor_M] = this->pred_q.front();
         this->pred_q.pop();
         lock.unlock();
-        if (this->pred_q.size() > 5) std::cout << "Warning: " << "this->pred_q.size(): " << this->pred_q.size() << std::endl;
+        if (this->pred_q.size() > 5) {
+            std::cout << "Warning: " << "this->pred_q.size(): " << this->pred_q.size() << std::endl;
+            while (!this->pred_q.empty()) this->pred_q.pop();
+        }
 
         // 미인식인 경우
         if (!result) {
@@ -519,7 +540,10 @@ void CVisionDlg::paint_img_proc() {
         auto [show_img, crop_img_map] = this->show_q.front();
         this->show_q.pop();
         lock.unlock();
-        if (this->show_q.size() > 5) std::cout << "Warning: " << "this->show_q.size(): " << this->show_q.size() << std::endl;
+        if (this->show_q.size() > 5) {
+            std::cout << "Warning: " << "this->show_q.size(): " << this->show_q.size() << std::endl;
+            while (!this->show_q.empty()) this->show_q.pop();
+        }
 
         // 이미지 보여주기
         draw_matimg_PC(show_img, IDC_VISION_MAIN);
@@ -539,7 +563,10 @@ void CVisionDlg::recog_img_proc() {
         auto [number_img, barcode_img] = this->dataimg_q.front();
         this->dataimg_q.pop();
         lock.unlock();
-        if (this->dataimg_q.size() > 5) std::cout << "Warning: " << "this->dataimg_q.size(): " << this->dataimg_q.size() << std::endl;
+        if (this->dataimg_q.size() > 5) {
+            std::cout << "Warning: " << "this->dataimg_q.size(): " << this->dataimg_q.size() << std::endl;
+            while (!this->dataimg_q.empty()) this->dataimg_q.pop();
+        }
 
         CString number, barcode;
         // 숫자이미지 인식
@@ -585,7 +612,4 @@ void CVisionDlg::OnBnClickedTestBtn()
     int aa = tt.Find(L"나다");
     TRACE("\n%d\n", aa);
 }
-
-
-
 

@@ -42,4 +42,5 @@ private:
 	int m_selected_tab = 0;
 public:
 	afx_msg void OnSize(UINT nType, int cx, int cy);
+	virtual BOOL PreTranslateMessage(MSG* pMsg);
 };

@@ -100,7 +100,7 @@ class PolyControl : public Poly {
 private:
 	int m_pt_size = 8;
 	COLORREF m_color;
-	CString m_name = L"";
+	CString m_label = L"";
 
 	void set_color() {
 		// 난수 생성 엔진과 분포 정의
@@ -132,7 +132,7 @@ public:
 	}
 	PolyControl(const PolyControl& pc) : Poly(pc) {
 		m_color = pc.m_color;
-		m_name = pc.m_name;
+		m_label = pc.m_label;
 	}
 
 	std::vector<cv::Point2f> get_points() const override {
@@ -224,7 +224,7 @@ public:
 	}
 
 
-	void draw_name(CDC* pDC) {
+	void draw_label(CDC* pDC) {
 		// 폰트 생성
 		CFont font;
 		font.CreatePointFont(200, L"Arial");
@@ -235,13 +235,13 @@ public:
 		CFont* pOldFont = pDC->SelectObject(&font);
 
 		// 글자 크기 계산후 그리기
-		if (Poly::points.size() && !m_name.IsEmpty()) {
+		if (Poly::points.size() && !m_label.IsEmpty()) {
 			CPoint pos = Poly::get_point<CPoint>(0);
 			pos.y -= 30;
 			CRect rect(0, 0, 0, 0);
-			pDC->DrawText(m_name, &rect, DT_SINGLELINE | DT_CALCRECT);
+			pDC->DrawText(m_label, &rect, DT_SINGLELINE | DT_CALCRECT);
 			rect.OffsetRect(pos);
-			pDC->DrawText(m_name, &rect, DT_SINGLELINE | DT_LEFT | DT_TOP);
+			pDC->DrawText(m_label, &rect, DT_SINGLELINE | DT_LEFT | DT_TOP);
 		}
 
 		// 글자색, 모드, 폰트 복원
@@ -282,7 +282,7 @@ public:
 	CRect get_surrounding_rect() const {
 		CPoint pos1 = Poly::get_point<CPoint>(0);
 		CPoint pos2 = Poly::get_point<CPoint>(0);
-		
+
 		// pos1은 최소 좌표, pos2은 최대 좌표
 		for (int i = 0; i < Poly::points.size(); ++i) {
 			if (pos1.x > Poly::points[i].x) pos1.x = Poly::points[i].x;
@@ -297,12 +297,12 @@ public:
 	}
 
 
-	PolyControl& set_name(const CString& name) {
-		m_name = name;
+	PolyControl& set_label(const CString& label) {
+		m_label = label;
 		return *this;
 	}
-	CString get_name() const {
-		return m_name;
+	CString get_label() const {
+		return m_label;
 	}
 
 
