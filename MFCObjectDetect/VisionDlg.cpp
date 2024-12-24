@@ -13,8 +13,12 @@
 #include <opencv2/opencv.hpp>
 #include <random>
 #include <tuple>
+#include <filesystem>
 
 #include "polyDetector.h"
+#include "tool.h"
+
+namespace fs = std::filesystem;
 
 #pragma comment(linker, "/entry:wWinMainCRTStartup /subsystem:console")
 
@@ -44,6 +48,7 @@ BEGIN_MESSAGE_MAP(CVisionDlg, CDialogEx)
 	ON_WM_DRAWITEM()
     ON_WM_SIZE()
     ON_WM_TIMER()
+    ON_BN_CLICKED(IDC_RELOAD_BTN, &CVisionDlg::OnBnClickedReloadBtn)
 END_MESSAGE_MAP()
 
 
@@ -68,7 +73,7 @@ BOOL CVisionDlg::OnInitDialog()
 
     // poly_detector 초기화
     try {
-        this->poly_detector = poly::PolyDetector("./dataset");
+        this->poly_detector = poly::PolyDetector(m_dataset_path);
     }
     catch (const std::runtime_error& e) {
         // runtime_error 예외 처리
@@ -83,9 +88,10 @@ BOOL CVisionDlg::OnInitDialog()
         std::cerr << "Caught an unknown exception!" << std::endl;
     }
 
+    //m_dataset_path.
     // poly_detector 테스트
     std::cout << "poly_detector 테스트 시작" << std::endl;
-    cv::Mat img = cv::imread("./dataset/c_port.jpg");
+    cv::Mat img = cv::imread((m_dataset_path / "c_port.jpg").string());
     //cv::Mat img = cv::imread("./dataset/c_port.jpg");
     if (img.empty()) std::cout << "img is empty!" << std::endl;
     poly::ObjInfo obj;
@@ -95,6 +101,15 @@ BOOL CVisionDlg::OnInitDialog()
     std::cout << "result : " << result << std::endl;
     std::cout << "poly_detector 테스트 완료" << std::endl;
 
+    // 폰트사이즈 설정
+    fit_font_size(IDC_TXT_NUM);
+    fit_font_size(IDC_TXT_BAR);
+
+    // 등록리스트
+    m_name_list.SubclassDlgItem(IDC_NAME_LIST, this);
+    //m_name_list.ResetContent();
+    std::thread(&CVisionDlg::OnBnClickedReloadBtn, this).detach();
+    //OnBnClickedReloadBtn();
 
 	return TRUE;  // return TRUE unless you set the focus to a control
 	// 예외: OCX 속성 페이지는 FALSE를 반환해야 합니다.
@@ -153,7 +168,6 @@ void CVisionDlg::OnDrawItem(int nIDCtl, LPDRAWITEMSTRUCT lpDrawItemStruct)
             pDC->FillSolidRect(&rect, RGB(85, 177, 85)); // 초록
         }
         
-
         // 폰트
         CFont font;
         font.CreatePointFont((int)(rect.Height() * 6.66), L"굴림");
@@ -163,6 +177,33 @@ void CVisionDlg::OnDrawItem(int nIDCtl, LPDRAWITEMSTRUCT lpDrawItemStruct)
         pDC->SetTextColor(RGB(0, 0, 0)); // 텍스트 색상: 검정
         pDC->SetBkMode(TRANSPARENT); // 배경 투명
         pDC->DrawText(srcText, &rect, DT_CENTER | DT_VCENTER | DT_SINGLELINE);
+
+        // 테두리 그리기
+        UINT uState = lpDrawItemStruct->itemState;
+        // 버튼이 눌려있을 때
+        if (uState & ODS_SELECTED) pDC->DrawEdge(&rect, EDGE_SUNKEN, BF_RECT);
+        // 버튼이 평상시 상태일 때
+        else pDC->DrawEdge(&rect, EDGE_RAISED, BF_RECT);
+
+        // 뒤처리
+        pDC->SelectObject(pOldFont); // 이전 폰트 복원
+        font.DeleteObject();
+
+        return; // 기본 처리는 하지 않음
+    }
+    else if (nIDCtl == IDC_RELOAD_BTN) {
+        CDC* pDC = CDC::FromHandle(lpDrawItemStruct->hDC);
+        CRect rect = lpDrawItemStruct->rcItem;
+
+        // 폰트
+        CFont font;
+        font.CreatePointFont((int)(rect.Height() * 6.0), L"굴림");
+        CFont* pOldFont = pDC->SelectObject(&font); // 폰트 적용
+
+        // 버튼 텍스트
+        pDC->SetTextColor(RGB(0, 0, 0)); // 텍스트 색상: 검정
+        pDC->SetBkMode(TRANSPARENT); // 배경 투명
+        pDC->DrawText(L"새로고침", &rect, DT_CENTER | DT_VCENTER | DT_SINGLELINE);
 
         // 테두리 그리기
         UINT uState = lpDrawItemStruct->itemState;
@@ -205,8 +246,19 @@ void CVisionDlg::OnBnClickedStartBtn()
 
     // 시작
     if (this->running) {
-        // 
-        this->poly_detector.update();
+        // 체크된 품목 리스트 가져오기
+        std::set<std::string> pick_names_set;
+        int len = m_name_list.GetCount();
+        for (int i = 0; i < len; ++i) {
+            bool check = m_name_list.GetCheck(i);
+            if (!check) continue;
+            CString name;
+            m_name_list.GetText(i, name);
+            pick_names_set.insert(tool::UTF16ToANSI(name.GetString())); // ANSI or UTF-8 ?
+        }
+
+        // 데이터셋 다시 불러오기
+        this->poly_detector.update(pick_names_set);
 
         // 카메라 오픈
         this->cap.open(0);
@@ -229,7 +281,7 @@ void CVisionDlg::OnBnClickedStartBtn()
     }
     // 중지
     else {
-        // 쓰레드 중지 신호
+        // 쓰레드 조건변수 체크 신호
         this->raw_q_cv.notify_all();
         this->pred_q_cv.notify_all();
         this->show_q_cv.notify_all();
@@ -241,6 +293,8 @@ void CVisionDlg::OnBnClickedStartBtn()
 
         // 카메라 닫기
         this->cap.release();
+
+        // 화면 초기화
         erase_DC(IDC_VISION_MAIN);
         erase_DC(IDC_PIC_OBJ);
         erase_DC(IDC_PIC_NUM);
@@ -248,6 +302,71 @@ void CVisionDlg::OnBnClickedStartBtn()
         SetDlgItemText(IDC_TXT_NUM, L"");
         SetDlgItemText(IDC_TXT_BAR, L"");
     }
+}
+
+
+void CVisionDlg::OnBnClickedReloadBtn()
+{
+    // TODO: 여기에 컨트롤 알림 처리기 코드를 추가합니다.
+    std::this_thread::sleep_for(std::chrono::milliseconds(1000 / 30)); // 30 fps
+
+    std::set<std::string> exist_img_set;
+    std::set<std::string> exist_json_set;
+    std::set<std::string> union_name_set;
+
+    // 디렉터리 파일이름 추출해서 set 넣기
+    for (const auto& entry : fs::directory_iterator(m_dataset_path)) {
+        fs::path p = entry.path();
+        if (p.extension() == ".json") {
+            exist_json_set.insert(p.filename().stem().string());
+        }
+        else if (p.extension() == ".jpg") {
+            exist_img_set.insert(p.filename().stem().string());
+        }
+        else if (p.extension() == ".png") {
+            exist_img_set.insert(p.filename().stem().string());
+        }
+    }
+
+    // img_set과 json_set 교집합
+    for (const auto& v : exist_img_set) {
+        if (exist_json_set.find(v) != exist_json_set.end()) {
+            union_name_set.insert(v);
+        }
+    }
+
+    // 이전 체크 상태 저장
+    std::map<CString, bool> before_state_map;
+    int size = m_name_list.GetCount();
+    for (int i = 0; i < size; ++i) {
+        CString name;
+        m_name_list.GetText(i, name);
+        before_state_map[name] = m_name_list.GetCheck(i);
+    }
+
+    // 새로 리스트 만들기
+    m_name_list.ResetContent();
+    for (auto& name : exist_img_set) {
+        m_name_list.AddString(tool::ANSIToUTF16(name).c_str());
+    }
+
+    // 이전 체크 상태 가져오기
+    size = m_name_list.GetCount();
+    for (int i = 0; i < size; ++i) {
+        CString name;
+        m_name_list.GetText(i, name);
+        m_name_list.SetCheck(i, before_state_map[name]); // 없으면 기본값 false;
+    }
+}
+
+
+void CVisionDlg::fit_font_size(int nID) {
+    CWnd* pWnd = GetDlgItem(nID);
+    CRect rect;
+    pWnd->GetClientRect(&rect);
+    CFont font;
+    font.CreatePointFont((int)(rect.Height() * 6.66), L"굴림");
+    pWnd->SetFont(&font);
 }
 
 

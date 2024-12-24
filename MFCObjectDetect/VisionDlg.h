@@ -9,6 +9,9 @@
 #include <queue>
 #include <condition_variable>
 #include <tuple>
+#include <filesystem>
+
+namespace fs = std::filesystem;
 
 #include "polyDetector.h"
 
@@ -40,9 +43,13 @@ public:
 	afx_msg void OnDrawItem(int nIDCtl, LPDRAWITEMSTRUCT lpDrawItemStruct);
 	afx_msg void OnTimer(UINT_PTR nIDEvent);
 	afx_msg void OnBnClickedStartBtn();
+	afx_msg void OnBnClickedReloadBtn();
 	afx_msg void OnBnClickedTestBtn();
 
 private:
+	// 데이터셋 위치
+	const fs::path m_dataset_path = fs::current_path() / "dataset";
+
 	// 실행, 종료
 	bool running = false;
 
@@ -53,6 +60,8 @@ private:
 	// poly 관련
 	poly::PolyDetector poly_detector;
 
+	// 등록리스트
+	CCheckListBox m_name_list;
 
 	// 스레드 관련
 	std::vector<std::thread> thr_list;
@@ -81,6 +90,7 @@ private:
 
 
 public:
+	void fit_font_size(int nID);
 	void erase_DC(int nID, COLORREF fill_color = RGB(240, 240, 240));
 	void draw_matimg_PC(const cv::Mat& mat_img, int nID);
 	void draw_c_img_PC(const CImage& c_img, int nID, CRect* drawing_rect = nullptr, COLORREF fill_color = RGB(240, 240, 240));

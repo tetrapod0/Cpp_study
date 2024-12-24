@@ -12,9 +12,6 @@
 #define IDC_START_BTN                   1003
 #define IDC_TEST_BTN                    1004
 #define IDC_VISION_MAIN                 1006
-#define IDC_INFO_OBJ                    1019
-#define IDC_INFO_NUM                    1020
-#define IDC_INFO_BARCODE                1021
 #define IDC_TXT_NUM                     1022
 #define IDC_PIC_NUM                     1023
 #define IDC_PIC_OBJ                     1024
@@ -29,8 +26,9 @@
 #define IDC_SAVE_BTN                    1031
 #define IDC_LOAD_BTN                    1032
 #define IDC_CROP_PIC                    1033
-#define IDC_NAME_EDIT2                  1034
 #define IDC_LABEL_EDIT                  1034
+#define IDC_NAME_LIST                   1034
+#define IDC_RELOAD_BTN                  1036
 
 // Next default values for new objects
 // 
@@ -38,7 +36,7 @@
 #ifndef APSTUDIO_READONLY_SYMBOLS
 #define _APS_NEXT_RESOURCE_VALUE        143
 #define _APS_NEXT_COMMAND_VALUE         32771
-#define _APS_NEXT_CONTROL_VALUE         1034
+#define _APS_NEXT_CONTROL_VALUE         1037
 #define _APS_NEXT_SYMED_VALUE           101
 #endif
 #endif

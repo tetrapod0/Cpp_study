@@ -6,11 +6,13 @@
 #include "afxdialogex.h"
 #include "LabelerDlg.h"
 
-#include "polyLabeler.h"
 #include <opencv2/opencv.hpp>
 #include <filesystem>
 #include "json.hpp"
 #include <fstream>
+
+#include "polyLabeler.h"
+#include "tool.h"
 
 namespace fs = std::filesystem;
 using json = nlohmann::json;
@@ -175,7 +177,7 @@ void CLabelerDlg::OnBnClickedSaveBtn()
 		json shape;
 		// 이름 넣기
 		CString name = poly.get_label();
-		shape["label"] = WStringToString(name.GetString());
+		shape["label"] = tool::UTF16ToUTF8(name.GetString()); // utf-8
 		// 폴리곤 넣기
 		poly -= m_bg_pos;
 		poly /= m_bg_mag;
@@ -189,14 +191,14 @@ void CLabelerDlg::OnBnClickedSaveBtn()
 	}
 
 	// img 저장하기
-	fs::path img_path = fs::current_path() / m_dataset_path / name.GetString();
+	fs::path img_path = m_dataset_path / name.GetString();
 	img_path.replace_extension(m_img_extension);
 	bool result = cv::imwrite(img_path.string(), m_origin_bg);
 	if (!result) AfxMessageBox(L"이미지 저장 실패");
 	std::cout << "Saved Json: " << img_path.string() << std::endl;
 
 	// json 저장하기
-	fs::path json_path = fs::current_path() / m_dataset_path / name.GetString();
+	fs::path json_path = m_dataset_path / name.GetString();
 	json_path.replace_extension(".json");
 	std::ofstream o(json_path, std::ios::out);
 	o << data.dump(2);
@@ -722,8 +724,8 @@ void CLabelerDlg::open_file_path(CString file_path) {
 
 
 			// 라벨 얻기
-			std::string str = poly_data["label"].get<std::string>();
-			std::wstring wstr = StringToWString(str);
+			std::string str = poly_data["label"].get<std::string>(); // utf-8
+			std::wstring wstr = tool::UTF8ToUTF16(str); // utf-16
 			CString label = wstr.c_str();
 
 			// 값 얻기
@@ -757,24 +759,6 @@ void CLabelerDlg::fit_font_size(int nID) {
 	CFont font;
 	font.CreatePointFont((int)(rect.Height() * 6.66), L"굴림");
 	pWnd->SetFont(&font);
-}
-
-
-std::wstring CLabelerDlg::StringToWString(const std::string& str) {
-	// UTF-8 문자열을 wchar_t로 변환
-	int size_needed = MultiByteToWideChar(CP_UTF8, 0, str.c_str(), -1, NULL, 0) - 1;
-	std::wstring wstr(size_needed, L'\0');
-	MultiByteToWideChar(CP_UTF8, 0, str.c_str(), -1, &wstr[0], size_needed);
-	return wstr;
-}
-
-
-std::string CLabelerDlg::WStringToString(const std::wstring& wstr) {
-	// wchar_t 문자열을 UTF-8로 변환
-	int size_needed = WideCharToMultiByte(CP_UTF8, 0, wstr.c_str(), -1, NULL, 0, NULL, NULL) - 1;
-	std::string str(size_needed, '\0');
-	WideCharToMultiByte(CP_UTF8, 0, wstr.c_str(), -1, &str[0], size_needed, NULL, NULL);
-	return str;
 }
 
 

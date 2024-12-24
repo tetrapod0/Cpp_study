@@ -47,7 +47,7 @@ public:
 	afx_msg void OnMButtonUp(UINT nFlags, CPoint point);
 
 private:
-	const std::string m_dataset_path = "dataset";
+	const fs::path m_dataset_path = fs::current_path() / "dataset";
 	std::vector<PolyControl> m_poly_list;
 	bool m_vertex_is_clicked = false;
 	bool m_poly_is_clicked = false;
@@ -72,6 +72,4 @@ public:
 	void init_values();
 	void open_file_path(CString file_path);
 	void fit_font_size(int nID);
-	std::wstring StringToWString(const std::string& str);
-	std::string WStringToString(const std::wstring& wstr);
 };

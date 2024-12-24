@@ -146,6 +146,8 @@ void CMFCObjectDetectDlg::OnTcnSelchangeTabMain(NMHDR* pNMHDR, LRESULT* pResult)
 
 	// 전환전 상태검사?
 
+	//if (m_selected_tab == 0)
+
 
 	// 탭 전환
 	if (sel < m_pDlgList.size()) {

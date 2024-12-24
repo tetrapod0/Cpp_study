@@ -175,7 +175,7 @@ void CMFCLabelerDlg::OnFileSave()
 		json shape;
 		// 이름 넣기
 		CString name = poly.get_name();
-		shape["label"] = WStringToString(name.GetString());
+		shape["label"] = WStringToString(name.GetString()); // utf-8
 		// 폴리곤 넣기
 		poly -= m_bg_pos;
 		poly /= m_bg_mag;
@@ -736,8 +736,8 @@ void CMFCLabelerDlg::open_file_path(CString file_path) {
 
 
 			// 이름 얻기
-			std::string str = poly_data["label"].get<std::string>();
-			std::wstring wstr = StringToWString(str);
+			std::string str = poly_data["label"].get<std::string>(); // utf-8
+			std::wstring wstr = StringToWString(str); // utf-16
 			CString name = wstr.c_str();
 
 			// 값 얻기

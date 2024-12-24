@@ -8,6 +8,7 @@
 #include <fstream>
 #include "json.hpp"
 #include <iostream>
+#include "tool.h"
 
 namespace fs = std::filesystem;
 using json = nlohmann::json;
@@ -17,7 +18,6 @@ namespace poly {
 	float get_pseudo_width(const std::vector<cv::Point2f>& pts);
 	float get_pseudo_height(const std::vector<cv::Point2f>& pts);
 	cv::Mat crop_img_and_get_M(const cv::Mat& src_img, cv::Mat& dst_crop_img, const std::vector<cv::Point2f>& poly, const cv::Size& size = {0,0});
-
 
 	struct ObjInfo {
 		// first - label, second - polys // 주의! object 라벨은 직사각형이어야함
@@ -30,7 +30,7 @@ namespace poly {
 		ObjInfo() {};
 		ObjInfo(std::string name, fs::path img_path, fs::path json_path, cv::Ptr<cv::ORB> detector) {
 			// 이름 할당
-			this->name = name;
+			this->name = name; // ANSI
 
 			// json 불러오기
 			std::ifstream i(json_path.string(), std::ios::in);
@@ -47,7 +47,8 @@ namespace poly {
 				if (!poly_data.contains("points")) throw std::runtime_error("json 데이터에 \"points\"가 없습니다.");
 
 				// 라벨 이름 얻기 // map key
-				std::string label_name = poly_data["label"].get<std::string>();
+				std::string label_name = poly_data["label"].get<std::string>(); // utf-8
+				label_name = tool::UTF8ToANSI(label_name); // ansi
 
 				// 값 얻기 // map value
 				this->src_poly_map[label_name] = {
@@ -151,7 +152,7 @@ namespace poly {
 			this->detector = nullptr; //cv::Ptr<cv::ORB>();
 			this->matcher = nullptr; //cv::Ptr<cv::BFMatcher>();
 		}
-		PolyDetector(fs::path data_dir_path, std::set<std::string>* pick_names_set = nullptr, int n_features = 2000) {
+		PolyDetector(fs::path data_dir_path, int n_features = 2000, std::set<std::string> pick_names_set = {}) {
 			this->detector = cv::ORB::create(n_features);
 			this->matcher = cv::BFMatcher::create(cv::NormTypes::NORM_HAMMING2, true);
 			this->data_dir_path = data_dir_path;
@@ -161,7 +162,7 @@ namespace poly {
 		~PolyDetector() = default;
 
 
-		void update(std::set<std::string>* pick_names_set = nullptr) {
+		void update(std::set<std::string> pick_names_set = {}) { // ANSI string 임
 			std::set<std::string> exist_img_set;
 			std::set<std::string> exist_json_set;
 			std::set<std::string> union_name_set1;
@@ -189,9 +190,9 @@ namespace poly {
 			}
 
 			// union_set과 pick_names_set 교집합
-			if (pick_names_set != nullptr) {
+			if (pick_names_set.size()) {
 				for (const auto& v : union_name_set1) {
-					if (pick_names_set->find(v) != pick_names_set->end()) {
+					if (pick_names_set.find(v) != pick_names_set.end()) {
 						union_name_set2.insert(v);
 					}
 				}
